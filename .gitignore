@@ -127,3 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# dataset & model
+/data
+/bert
+/models
+
+# vscode
+.vscode
