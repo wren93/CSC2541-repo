@@ -12,13 +12,9 @@ parser.add_argument("-vocab", type=str, default='./data/mimic3/vocab.csv')
 parser.add_argument("-Y", type=str, default='full', choices=['full', '50'])
 parser.add_argument("-version", type=str, choices=['mimic2', 'mimic3'], default='mimic3')
 parser.add_argument("-MAX_LENGTH", type=int, default=2500)
-# parser.add_argument("-MAX_LENGTH", type=int, default=512)
 
 # model
-# TODO: Change in line !!!!
 parser.add_argument("-model", type=str, choices=['CNN', 'MultiCNN', 'ResCNN', 'MultiResCNN', 'bert_seq_cls'], default='MultiResCNN')
-# parser.add_argument("-model", type=str, choices=['CNN', 'MultiCNN', 'ResCNN', 'MultiResCNN', 'bert_seq_cls'], default='bert_seq_cls')
-# TODO: Change in line !!!!
 parser.add_argument("-filter_size", type=str, default="3,5,9,15,19,25")
 parser.add_argument("-num_filter_maps", type=int, default=50)
 parser.add_argument("-conv_layer", type=int, default=1)
@@ -34,7 +30,7 @@ parser.add_argument("-batch_size", type=int, default=16)
 parser.add_argument("-lr", type=float, default=1e-4)
 parser.add_argument("-weight_decay", type=float, default=0)
 parser.add_argument("-criterion", type=str, default='prec_at_8', choices=['prec_at_8', 'f1_micro', 'prec_at_5'])
-parser.add_argument("-gpu", type=int, default=0, help='-1 if not use gpu, >=0 if use gpu')
+parser.add_argument("-gpu", type=str, default='0, 1, 2, 3', help='-1 if not using gpu, use comma to separate multiple gpus')
 parser.add_argument("-tune_wordemb", action="store_const", const=True, default=False)
 parser.add_argument('-random_seed', type=int, default=1, help='0 if randomly initialize the model, other if fix the seed')
 
@@ -52,3 +48,7 @@ parser.add_argument("-bert_dir", type=str, default='bert/bert-base-uncased')
 args = parser.parse_args()
 command = ' '.join(['python'] + sys.argv)
 args.command = command
+
+# gpu settings
+args.gpu_list = [int(idx) for idx in args.gpu.split(',')]
+args.gpu_list = [i for i in range(len(args.gpu_list))] if args.gpu_list[0] >= 0 else [-1]

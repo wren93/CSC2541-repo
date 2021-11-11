@@ -12,8 +12,6 @@ class WordRep(nn.Module):
     def __init__(self, args, Y, dicts):
         super(WordRep, self).__init__()
 
-        self.gpu = args.gpu
-
         if args.embed_file:
             print("loading pretrained embeddings from {}".format(args.embed_file))
             if args.use_ext_emb:
@@ -61,9 +59,13 @@ class WordRep(nn.Module):
         x = self.embed_drop(x)
         return x
 
-class OutputLayer(nn.Module):
+
+class Decoder(nn.Module):
+    """
+    Decoder part: per-label attention layer and classifier
+    """
     def __init__(self, args, Y, dicts, input_size):
-        super(OutputLayer, self).__init__()
+        super(Decoder, self).__init__()
 
         self.U = nn.Linear(input_size, Y)
         xavier_uniform(self.U.weight)
@@ -101,7 +103,7 @@ class CNN(nn.Module):
                                   padding=int(floor(filter_size / 2)))
         xavier_uniform(self.conv.weight)
 
-        self.output_layer = OutputLayer(args, Y, dicts, args.num_filter_maps)
+        self.output_layer = Decoder(args, Y, dicts, args.num_filter_maps)
 
 
     def forward(self, x, target, text_inputs):
@@ -143,7 +145,7 @@ class MultiCNN(nn.Module):
                 xavier_uniform(tmp.weight)
                 self.conv.add_module('conv-{}'.format(filter_size), tmp)
 
-        self.output_layer = OutputLayer(args, Y, dicts, self.filter_num * args.num_filter_maps)
+        self.output_layer = Decoder(args, Y, dicts, self.filter_num * args.num_filter_maps)
 
 
 
@@ -211,7 +213,7 @@ class ResCNN(nn.Module):
             tmp = ResidualBlock(conv_dimension[idx], conv_dimension[idx + 1], int(args.filter_size), 1, True, args.dropout)
             self.conv.add_module('conv-{}'.format(idx), tmp)
 
-        self.output_layer = OutputLayer(args, Y, dicts, args.num_filter_maps)
+        self.output_layer = Decoder(args, Y, dicts, args.num_filter_maps)
 
 
     def forward(self, x, target, text_inputs):
@@ -260,7 +262,7 @@ class MultiResCNN(nn.Module):
 
             self.conv.add_module('channel-{}'.format(filter_size), one_channel)
 
-        self.output_layer = OutputLayer(args, Y, dicts, self.filter_num * args.num_filter_maps)
+        self.output_layer = Decoder(args, Y, dicts, self.filter_num * args.num_filter_maps)
 
 
     def forward(self, x, target, text_inputs):
@@ -349,6 +351,8 @@ def pick_model(args, dicts):
     if args.test_model:
         sd = torch.load(args.test_model)
         model.load_state_dict(sd)
-    if args.gpu >= 0:
-        model.cuda(args.gpu)
+    if len(args.gpu_list) == 1 and args.gpu_list[0] != -1: # single card training
+        model.cuda()
+    elif len(args.gpu_list > 1): # multi-card training
+        model = nn.DataParallel(model, device_ids=args.gpu_list)
     return model

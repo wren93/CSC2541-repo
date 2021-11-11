@@ -1,3 +1,4 @@
+import copy
 import gensim.models
 import numpy as np
 from tqdm import tqdm
@@ -680,10 +681,12 @@ def save_everything(args, metrics_hist_all, model, model_dir, params, criterion,
                 eval_val = np.nanargmax(metrics_hist_all[0][criterion])
 
             if eval_val == len(metrics_hist_all[0][criterion]) - 1:
-                sd = model.cpu().state_dict()
+                model_save = copy.deepcopy(model)
+                if isinstance(model_save, torch.nn.DataParallel):
+                    sd = model_save.module.cpu().state_dict()
+                else:
+                    sd = model_save.cpu().state_dict()
                 torch.save(sd, model_dir + "/model_best_%s.pth" % criterion)
-                if args.gpu >= 0:
-                    model.cuda(args.gpu)
     print("saved metrics, params, model to directory %s\n" % (model_dir))
 
 

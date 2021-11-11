@@ -24,9 +24,9 @@ def train(args, model, optimizer, epoch, gpu, data_loader):
             inputs_id, segments, masks, labels = torch.LongTensor(inputs_id), torch.LongTensor(segments), \
                                                  torch.LongTensor(masks), torch.FloatTensor(labels)
 
-            if gpu >= 0:
-                inputs_id, segments, masks, labels = inputs_id.cuda(gpu), segments.cuda(gpu), \
-                                                     masks.cuda(gpu), labels.cuda(gpu)
+            if gpu[0] >= 0:
+                inputs_id, segments, masks, labels = inputs_id.cuda(), segments.cuda(), \
+                                                     masks.cuda(), labels.cuda()
 
             output, loss = model(inputs_id, segments, masks, labels)
         else:
@@ -35,8 +35,8 @@ def train(args, model, optimizer, epoch, gpu, data_loader):
 
             inputs_id, labels = torch.LongTensor(inputs_id), torch.FloatTensor(labels)
 
-            if gpu >= 0:
-                inputs_id, labels, text_inputs = inputs_id.cuda(gpu), labels.cuda(gpu), text_inputs.cuda(gpu)
+            if gpu[0] >= 0:
+                inputs_id, labels, text_inputs = inputs_id.cuda(), labels.cuda(), text_inputs.cuda()
 
             output, loss = model(inputs_id, labels, text_inputs)
 
@@ -70,9 +70,8 @@ def test(args, model, data_path, fold, gpu, dicts, data_loader):
                 inputs_id, segments, masks, labels = torch.LongTensor(inputs_id), torch.LongTensor(segments), \
                                                      torch.LongTensor(masks), torch.FloatTensor(labels)
 
-                if gpu >= 0:
-                    inputs_id, segments, masks, labels = inputs_id.cuda(
-                        gpu), segments.cuda(gpu), masks.cuda(gpu), labels.cuda(gpu)
+                if gpu[0] >= 0:
+                    inputs_id, segments, masks, labels = inputs_id.cuda(), segments.cuda(), masks.cuda(), labels.cuda()
 
                 output, loss = model(inputs_id, segments, masks, labels)
             else:
@@ -81,8 +80,8 @@ def test(args, model, data_path, fold, gpu, dicts, data_loader):
 
                 inputs_id, labels, = torch.LongTensor(inputs_id), torch.FloatTensor(labels)
 
-                if gpu >= 0:
-                    inputs_id, labels, text_inputs = inputs_id.cuda(gpu), labels.cuda(gpu), text_inputs.cuda(gpu)
+                if gpu[0] >= 0:
+                    inputs_id, labels, text_inputs = inputs_id.cuda(), labels.cuda(), text_inputs.cuda()
 
                 output, loss = model(inputs_id, labels, text_inputs)
 

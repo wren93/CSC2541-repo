@@ -17,7 +17,7 @@ from train_test import train, test
 from pytorch_pretrained_bert import BertAdam
 
 if __name__ == "__main__":
-
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
     if args.random_seed != 0:
         random.seed(args.random_seed)
@@ -43,7 +43,6 @@ if __name__ == "__main__":
 
     model = pick_model(args, dicts)
     print(model)
-    # torch.save(model, './test.pth')
 
     if not args.test_model:
         optimizer = optim.Adam(model.parameters(), weight_decay=args.weight_decay, lr=args.lr)
@@ -114,7 +113,7 @@ if __name__ == "__main__":
 
         if not test_only:
             epoch_start = time.time()
-            losses = train(args, model, optimizer, epoch, args.gpu, train_loader)
+            losses = train(args, model, optimizer, epoch, args.gpu_list, train_loader)
             loss = np.mean(losses)
             epoch_finish = time.time()
             print("epoch finish in %.2fs, loss: %.4f" % (epoch_finish - epoch_start, loss))
@@ -130,11 +129,11 @@ if __name__ == "__main__":
 
         # test on dev
         evaluation_start = time.time()
-        metrics = test(args, model, args.data_path, fold, args.gpu, dicts, dev_loader)
+        metrics = test(args, model, args.data_path, fold, args.gpu_list, dicts, dev_loader)
         evaluation_finish = time.time()
         print("evaluation finish in %.2fs" % (evaluation_finish - evaluation_start))
         if test_only or epoch == args.n_epochs - 1:
-            metrics_te = test(args, model, args.data_path, "test", args.gpu, dicts, test_loader)
+            metrics_te = test(args, model, args.data_path, "test", args.gpu_list, dicts, test_loader)
         else:
             metrics_te = defaultdict(float)
         metrics_tr = {'loss': loss}
