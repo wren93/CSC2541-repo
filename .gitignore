@@ -135,3 +135,6 @@ dmypy.json
 
 # vscode
 .vscode
+
+# files
+debug.py
