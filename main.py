@@ -1,4 +1,4 @@
-
+from functools import partial
 from options import args
 import random
 import numpy as np
@@ -17,7 +17,7 @@ from train_test import train, test
 from pytorch_pretrained_bert import BertAdam
 
 if __name__ == "__main__":
-
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
     if args.random_seed != 0:
         random.seed(args.random_seed)
@@ -43,7 +43,6 @@ if __name__ == "__main__":
 
     model = pick_model(args, dicts)
     print(model)
-    # torch.save(model, './test.pth')
 
     if not args.test_model:
         optimizer = optim.Adam(model.parameters(), weight_decay=args.weight_decay, lr=args.lr)
@@ -75,14 +74,14 @@ if __name__ == "__main__":
     if args.model.find("bert") != -1:
         collate_func = my_collate_bert
     else:
-        collate_func = my_collate
+        collate_func = partial(my_collate, use_elmo=args.use_elmo)
 
-    train_loader = DataLoader(MyDataset(train_instances), args.batch_size, shuffle=True, collate_fn=collate_func)
+    train_loader = DataLoader(MyDataset(train_instances), args.batch_size, shuffle=True, collate_fn=collate_func, num_workers=16, pin_memory=True)
     if args.version != 'mimic2':
-        dev_loader = DataLoader(MyDataset(dev_instances), 1, shuffle=False, collate_fn=collate_func)
+        dev_loader = DataLoader(MyDataset(dev_instances), 1, shuffle=False, collate_fn=collate_func, num_workers=16, pin_memory=True)
     else:
         dev_loader = None
-    test_loader = DataLoader(MyDataset(test_instances), 1, shuffle=False, collate_fn=collate_func)
+    test_loader = DataLoader(MyDataset(test_instances), 1, shuffle=False, collate_fn=collate_func, num_workers=16, pin_memory=True)
 
     if not args.test_model and args.model.find("bert") != -1:
         param_optimizer = list(model.named_parameters())
@@ -114,7 +113,7 @@ if __name__ == "__main__":
 
         if not test_only:
             epoch_start = time.time()
-            losses = train(args, model, optimizer, epoch, args.gpu, train_loader)
+            losses = train(args, model, optimizer, epoch, args.gpu_list, train_loader)
             loss = np.mean(losses)
             epoch_finish = time.time()
             print("epoch finish in %.2fs, loss: %.4f" % (epoch_finish - epoch_start, loss))
@@ -130,11 +129,11 @@ if __name__ == "__main__":
 
         # test on dev
         evaluation_start = time.time()
-        metrics = test(args, model, args.data_path, fold, args.gpu, dicts, dev_loader)
+        metrics = test(args, model, args.data_path, fold, args.gpu_list, dicts, dev_loader)
         evaluation_finish = time.time()
         print("evaluation finish in %.2fs" % (evaluation_finish - evaluation_start))
         if test_only or epoch == args.n_epochs - 1:
-            metrics_te = test(args, model, args.data_path, "test", args.gpu, dicts, test_loader)
+            metrics_te = test(args, model, args.data_path, "test", args.gpu_list, dicts, test_loader)
         else:
             metrics_te = defaultdict(float)
         metrics_tr = {'loss': loss}

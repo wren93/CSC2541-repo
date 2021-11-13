@@ -134,7 +134,8 @@ dmypy.json
 /models
 
 # vscode
-.vscode
+.vscode/
+
 
 # files
 /debug.py

@@ -1,3 +1,4 @@
+import copy
 import gensim.models
 import numpy as np
 from tqdm import tqdm
@@ -612,7 +613,7 @@ def pad_sequence(x, max_len, type=np.int):
     return padded_x
 
 from elmo.elmo import batch_to_ids
-def my_collate(x):
+def my_collate(x, use_elmo):
 
     words = [x_['tokens_id'] for x_ in x]
 
@@ -623,8 +624,10 @@ def my_collate(x):
 
     labels = [x_['label'] for x_ in x]
 
-    text_inputs = [x_['tokens'] for x_ in x]
-    text_inputs = batch_to_ids(text_inputs)
+    text_inputs = torch.tensor([0])
+    if use_elmo:
+        text_inputs = [x_['tokens'] for x_ in x]
+        text_inputs = batch_to_ids(text_inputs)
 
     return inputs_id, labels, text_inputs
 
@@ -680,10 +683,12 @@ def save_everything(args, metrics_hist_all, model, model_dir, params, criterion,
                 eval_val = np.nanargmax(metrics_hist_all[0][criterion])
 
             if eval_val == len(metrics_hist_all[0][criterion]) - 1:
-                sd = model.cpu().state_dict()
+                model_save = copy.deepcopy(model)
+                if isinstance(model_save, torch.nn.DataParallel):
+                    sd = model_save.module.cpu().state_dict()
+                else:
+                    sd = model_save.cpu().state_dict()
                 torch.save(sd, model_dir + "/model_best_%s.pth" % criterion)
-                if args.gpu >= 0:
-                    model.cuda(args.gpu)
     print("saved metrics, params, model to directory %s\n" % (model_dir))
 
 
