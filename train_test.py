@@ -39,7 +39,7 @@ def train(args, model, optimizer, epoch, gpu, data_loader):
             output, loss = model(inputs_id, labels, text_inputs)
 
         if len(gpu) > 1:
-            loss = loss.sum()
+            loss = loss.mean()
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

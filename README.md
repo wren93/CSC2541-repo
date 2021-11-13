@@ -4,6 +4,14 @@
 
 Adapted from Multi Filter Residual Convolutional Neural Network for Text Classification
 
+Useage
+-----
+Train and test using full MIMIC-III data (`-gpu '0'` for single-gpu training, for multi-gpu training, use comma to separate gpus. E.g. `-gpu '0, 1, 2, 3'` for 4 gpu training.)
+```
+python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model MultiResCNN -embed_file ./data/mimic3/processed_full.embed -criterion prec_at_8 -gpu '0, 1, 2, 3' -num_workers 16 -tune_wordemb
+```
+
+(Original README from the MultiResCNN repo)
 The Multi Filter Residual Convolutional Neural Network (MultiResCNN) is built based on [TextCNN](https://github.com/yoonkim/CNN_sentence), [Residual Network](https://github.com/KaimingHe/deep-residual-networks) and [CAML](https://github.com/jamesmullenbach/caml-mimic).
 It could be used as a strong baseline model for text classification. 
 The repo can be used to reproduce the results in the [paper](https://arxiv.org/abs/1912.00862):
