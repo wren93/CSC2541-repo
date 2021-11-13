@@ -1,4 +1,4 @@
-
+from functools import partial
 from options import args
 import random
 import numpy as np
@@ -74,14 +74,14 @@ if __name__ == "__main__":
     if args.model.find("bert") != -1:
         collate_func = my_collate_bert
     else:
-        collate_func = my_collate
+        collate_func = partial(my_collate, use_elmo=args.use_elmo)
 
-    train_loader = DataLoader(MyDataset(train_instances), args.batch_size, shuffle=True, collate_fn=collate_func)
+    train_loader = DataLoader(MyDataset(train_instances), args.batch_size, shuffle=True, collate_fn=collate_func, num_workers=16, pin_memory=True)
     if args.version != 'mimic2':
-        dev_loader = DataLoader(MyDataset(dev_instances), 1, shuffle=False, collate_fn=collate_func)
+        dev_loader = DataLoader(MyDataset(dev_instances), 1, shuffle=False, collate_fn=collate_func, num_workers=16, pin_memory=True)
     else:
         dev_loader = None
-    test_loader = DataLoader(MyDataset(test_instances), 1, shuffle=False, collate_fn=collate_func)
+    test_loader = DataLoader(MyDataset(test_instances), 1, shuffle=False, collate_fn=collate_func, num_workers=16, pin_memory=True)
 
     if not args.test_model and args.model.find("bert") != -1:
         param_optimizer = list(model.named_parameters())

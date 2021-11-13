@@ -613,7 +613,7 @@ def pad_sequence(x, max_len, type=np.int):
     return padded_x
 
 from elmo.elmo import batch_to_ids
-def my_collate(x):
+def my_collate(x, use_elmo):
 
     words = [x_['tokens_id'] for x_ in x]
 
@@ -624,8 +624,10 @@ def my_collate(x):
 
     labels = [x_['label'] for x_ in x]
 
-    text_inputs = [x_['tokens'] for x_ in x]
-    text_inputs = batch_to_ids(text_inputs)
+    text_inputs = torch.tensor([0])
+    if use_elmo:
+        text_inputs = [x_['tokens'] for x_ in x]
+        text_inputs = batch_to_ids(text_inputs)
 
     return inputs_id, labels, text_inputs
 

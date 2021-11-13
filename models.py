@@ -8,6 +8,7 @@ import json
 from utils import build_pretrain_embedding, load_embeddings
 from math import floor
 
+
 class WordRep(nn.Module):
     def __init__(self, args, Y, dicts):
         super(WordRep, self).__init__()
@@ -46,7 +47,6 @@ class WordRep(nn.Module):
 
 
     def forward(self, x, target, text_inputs):
-
         features = [self.embed(x)]
 
         if self.use_elmo:
@@ -75,7 +75,6 @@ class Decoder(nn.Module):
         xavier_uniform(self.final.weight)
 
         self.loss_function = nn.BCEWithLogitsLoss()
-
 
 
     def forward(self, x, target, text_inputs):
@@ -266,7 +265,6 @@ class MultiResCNN(nn.Module):
 
 
     def forward(self, x, target, text_inputs):
-
         x = self.word_rep(x, target, text_inputs)
 
         x = x.transpose(1, 2)
@@ -353,6 +351,7 @@ def pick_model(args, dicts):
         model.load_state_dict(sd)
     if len(args.gpu_list) == 1 and args.gpu_list[0] != -1: # single card training
         model.cuda()
-    elif len(args.gpu_list > 1): # multi-card training
+    elif len(args.gpu_list) > 1: # multi-card training
         model = nn.DataParallel(model, device_ids=args.gpu_list)
+        model = model.to(f'cuda:{model.device_ids[0]}')
     return model

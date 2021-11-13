@@ -16,7 +16,6 @@ def train(args, model, optimizer, epoch, gpu, data_loader):
     data_iter = iter(data_loader)
     num_iter = len(data_loader)
     for i in range(num_iter):
-
         if args.model.find("bert") != -1:
 
             inputs_id, segments, masks, labels = next(data_iter)
@@ -30,7 +29,6 @@ def train(args, model, optimizer, epoch, gpu, data_loader):
 
             output, loss = model(inputs_id, segments, masks, labels)
         else:
-
             inputs_id, labels, text_inputs = next(data_iter)
 
             inputs_id, labels = torch.LongTensor(inputs_id), torch.FloatTensor(labels)
@@ -40,6 +38,8 @@ def train(args, model, optimizer, epoch, gpu, data_loader):
 
             output, loss = model(inputs_id, labels, text_inputs)
 
+        if len(gpu) > 1:
+            loss = loss.sum()
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

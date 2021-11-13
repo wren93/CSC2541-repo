@@ -30,7 +30,7 @@ parser.add_argument("-batch_size", type=int, default=16)
 parser.add_argument("-lr", type=float, default=1e-4)
 parser.add_argument("-weight_decay", type=float, default=0)
 parser.add_argument("-criterion", type=str, default='prec_at_8', choices=['prec_at_8', 'f1_micro', 'prec_at_5'])
-parser.add_argument("-gpu", type=str, default='0, 1, 2, 3', help='-1 if not using gpu, use comma to separate multiple gpus')
+parser.add_argument("-gpu", type=str, default='0', help='-1 if not using gpu, use comma to separate multiple gpus')
 parser.add_argument("-tune_wordemb", action="store_const", const=True, default=False)
 parser.add_argument('-random_seed', type=int, default=1, help='0 if randomly initialize the model, other if fix the seed')
 
