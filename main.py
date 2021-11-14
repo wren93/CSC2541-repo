@@ -49,9 +49,6 @@ if __name__ == "__main__":
     else:
         optimizer = None
 
-    if args.tune_wordemb == False:
-        model.freeze_net()
-
     metrics_hist = defaultdict(lambda: [])
     metrics_hist_te = defaultdict(lambda: [])
     metrics_hist_tr = defaultdict(lambda: [])

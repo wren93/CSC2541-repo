@@ -292,8 +292,8 @@ class MultiResCNN(nn.Module):
 import os
 from pytorch_pretrained_bert.modeling import BertLayerNorm
 from pytorch_pretrained_bert import BertModel, BertConfig
-class Bert_seq_cls(nn.Module):
 
+class Bert_seq_cls(nn.Module):
     def __init__(self, args, Y):
         super(Bert_seq_cls, self).__init__()
 
@@ -331,6 +331,41 @@ class Bert_seq_cls(nn.Module):
         pass
 
 
+class BertStandard(nn.Module):
+    def __init__(self, args, Y):
+        super(BertStandard, self).__init__()
+
+        print("loading pretrained bert from {}".format(args.bert_dir))
+        config_file = os.path.join(args.bert_dir, 'bert_config.json')
+        self.config = BertConfig.from_json_file(config_file)
+        print("Model config {}".format(self.config))
+        self.bert = BertModel.from_pretrained(args.bert_dir)
+        
+        # decoder
+        self.decoder = Decoder(args, Y, None, self.config.hidden_size)
+        self.apply(self.init_bert_weights)
+
+    def forward(self, input_ids, token_type_ids, attention_mask, target):
+        encoder_output, _ = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
+
+        y, loss = self.decoder(encoder_output, target, None)
+        return y, loss
+
+    def init_bert_weights(self, module):
+
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+        elif isinstance(module, BertLayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        if isinstance(module, nn.Linear) and module.bias is not None:
+            module.bias.data.zero_()
+
+    def freeze_net(self):
+        pass
+
+
+
 def pick_model(args, dicts):
     Y = len(dicts['ind2c']) # total number of ICD codes
     if args.model == 'CNN':
@@ -343,12 +378,16 @@ def pick_model(args, dicts):
         model = MultiResCNN(args, Y, dicts)
     elif args.model == 'bert_seq_cls':
         model = Bert_seq_cls(args, Y)
+    elif args.model == 'bert_standard':
+        model = BertStandard(args, Y)
     else:
         raise RuntimeError("wrong model name")
 
     if args.test_model:
         sd = torch.load(args.test_model)
         model.load_state_dict(sd)
+    if args.tune_wordemb == False:
+        model.freeze_net()
     if len(args.gpu_list) == 1 and args.gpu_list[0] != -1: # single card training
         model.cuda()
     elif len(args.gpu_list) > 1: # multi-card training
