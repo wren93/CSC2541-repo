@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_ as xavier_uniform
-from elmo.elmo import Elmo
+# from elmo.elmo import Elmo
 import json
 from utils import build_pretrain_embedding, load_embeddings
 from math import floor
@@ -30,12 +30,12 @@ class WordRep(nn.Module):
         self.feature_size = self.embed.embedding_dim
 
         self.use_elmo = args.use_elmo
-        if self.use_elmo:
-            self.elmo = Elmo(args.elmo_options_file, args.elmo_weight_file, 1, requires_grad=args.elmo_tune,
-                             dropout=args.elmo_dropout, gamma=args.elmo_gamma)
-            with open(args.elmo_options_file, 'r') as fin:
-                _options = json.load(fin)
-            self.feature_size += _options['lstm']['projection_dim'] * 2
+        # if self.use_elmo:
+        #     self.elmo = Elmo(args.elmo_options_file, args.elmo_weight_file, 1, requires_grad=args.elmo_tune,
+        #                      dropout=args.elmo_dropout, gamma=args.elmo_gamma)
+        #     with open(args.elmo_options_file, 'r') as fin:
+        #         _options = json.load(fin)
+        #     self.feature_size += _options['lstm']['projection_dim'] * 2
 
         self.embed_drop = nn.Dropout(p=args.dropout)
 
@@ -331,6 +331,38 @@ class Bert_seq_cls(nn.Module):
         pass
 
 
+from transformers import XLNetModel, XLNetConfig
+from transformers.modeling_utils import SequenceSummary
+class XLNet_seq_cls(nn.Module):
+
+    def __init__(self, args, Y):
+        super(XLNet_seq_cls, self).__init__()
+
+        print("loading pretrained xlnet from {}".format(args.xlnet_dir))
+        config_file = os.path.join(args.xlnet_dir, 'config.json')
+        self.config = XLNetConfig.from_json_file(config_file)
+        print("Model config {}".format(self.config))
+        self.xlnet = XLNetModel.from_pretrained(args.xlnet_dir)
+
+        self.sequence_summary = SequenceSummary(self.config)
+
+        self.classifier = nn.Linear(self.config.d_model, Y)
+        # self.apply(self.init_bert_weights)
+
+    def forward(self, input_ids, token_type_ids, attention_mask, target):
+        xlnet_output = self.xlnet(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, return_dict=False)
+        output = xlnet_output[0]
+        output = self.sequence_summary(output)
+
+        y = self.classifier(output)
+
+        loss = F.binary_cross_entropy_with_logits(y, target)
+        return y, loss
+
+    def freeze_net(self):
+        pass
+
+
 def pick_model(args, dicts):
     Y = len(dicts['ind2c']) # total number of ICD codes
     if args.model == 'CNN':
@@ -343,6 +375,8 @@ def pick_model(args, dicts):
         model = MultiResCNN(args, Y, dicts)
     elif args.model == 'bert_seq_cls':
         model = Bert_seq_cls(args, Y)
+    elif args.model == 'xlnet':
+        model = XLNet_seq_cls(args, Y)
     else:
         raise RuntimeError("wrong model name")
 

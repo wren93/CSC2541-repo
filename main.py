@@ -6,7 +6,7 @@ import torch
 import csv
 import sys
 from utils import load_lookups, prepare_instance, prepare_instance_bert, MyDataset, my_collate, my_collate_bert, \
-    early_stop, save_everything
+    early_stop, save_everything, prepare_instance_xlnet
 from models import pick_model
 import torch.optim as optim
 from collections import defaultdict
@@ -15,6 +15,7 @@ import os
 import time
 from train_test import train, test
 from pytorch_pretrained_bert import BertAdam
+from transformers import AdamW
 
 if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -58,6 +59,8 @@ if __name__ == "__main__":
 
     if args.model.find("bert") != -1:
         prepare_instance_func = prepare_instance_bert
+    elif args.model.find("xlnet") != -1:
+        prepare_instance_func = prepare_instance_xlnet
     else:
         prepare_instance_func = prepare_instance
 
@@ -71,7 +74,7 @@ if __name__ == "__main__":
     test_instances = prepare_instance_func(dicts, args.data_path.replace('train','test'), args, args.MAX_LENGTH)
     print("test_instances {}".format(len(test_instances)))
 
-    if args.model.find("bert") != -1:
+    if args.model.find("bert") != -1 or args.model.find("xlnet") != -1:
         collate_func = my_collate_bert
     else:
         collate_func = partial(my_collate, use_elmo=args.use_elmo)
@@ -100,6 +103,16 @@ if __name__ == "__main__":
                              lr=args.lr,
                              warmup=0.1,
                              t_total=num_train_optimization_steps)
+    elif not args.test_model and args.model.find("xlnet") != -1:
+        param_optimizer = list(model.named_parameters())
+        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight', 'bias', 'gamma', 'beta']
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
+             'weight_decay': 0.01},
+            {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=args.lr)
+
 
     test_only = args.test_model is not None
 
