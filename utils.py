@@ -747,13 +747,13 @@ def all_macro(yhat, y):
     return macro_accuracy(yhat, y), macro_precision(yhat, y), macro_recall(yhat, y), macro_f1(yhat, y)
 
 def micro_accuracy(yhatmic, ymic):
-    return intersect_size(yhatmic, ymic, 0) / union_size(yhatmic, ymic, 0)
+    return intersect_size(yhatmic, ymic, 0) / (union_size(yhatmic, ymic, 0) + 1e-10)
 
 def micro_precision(yhatmic, ymic):
-    return intersect_size(yhatmic, ymic, 0) / yhatmic.sum(axis=0)
+    return intersect_size(yhatmic, ymic, 0) / (yhatmic.sum(axis=0) + 1e-10)
 
 def micro_recall(yhatmic, ymic):
-    return intersect_size(yhatmic, ymic, 0) / ymic.sum(axis=0)
+    return intersect_size(yhatmic, ymic, 0) / (ymic.sum(axis=0) + 1e-10)
 
 def micro_f1(yhatmic, ymic):
     prec = micro_precision(yhatmic, ymic)
@@ -761,7 +761,7 @@ def micro_f1(yhatmic, ymic):
     if prec + rec == 0:
         f1 = 0.
     else:
-        f1 = 2*(prec*rec)/(prec+rec)
+        f1 = 2 * (prec * rec) / (prec + rec)
     return f1
 
 def all_micro(yhatmic, ymic):
