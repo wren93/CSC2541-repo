@@ -290,15 +290,14 @@ class MultiResCNN(nn.Module):
             p.requires_grad = False
 
 import os
-from pytorch_pretrained_bert.modeling import BertLayerNorm
-from pytorch_pretrained_bert import BertModel, BertConfig
+from transformers import BertConfig, BertModel
 
 class Bert_seq_cls(nn.Module):
     def __init__(self, args, Y):
         super(Bert_seq_cls, self).__init__()
 
         print("loading pretrained bert from {}".format(args.bert_dir))
-        config_file = os.path.join(args.bert_dir, 'bert_config.json')
+        config_file = os.path.join(args.bert_dir, 'config.json')
         self.config = BertConfig.from_json_file(config_file)
         print("Model config {}".format(self.config))
         self.bert = BertModel.from_pretrained(args.bert_dir)
@@ -306,10 +305,11 @@ class Bert_seq_cls(nn.Module):
         self.dim_reduction = nn.Linear(self.config.hidden_size, args.num_filter_maps)
         self.dropout = nn.Dropout(self.config.hidden_dropout_prob)
         self.classifier = nn.Linear(args.num_filter_maps, Y)
-        self.apply(self.init_bert_weights)
+        # self.apply(self.init_bert_weights)
 
     def forward(self, input_ids, token_type_ids, attention_mask, target):
-        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
+        outputs = self.bert(input_ids, attention_mask, token_type_ids)
+        pooled_output = outputs.pooler_output
         x = self.dim_reduction(pooled_output)
         x = self.dropout(x)
         y = self.classifier(x)
@@ -321,7 +321,7 @@ class Bert_seq_cls(nn.Module):
 
         if isinstance(module, (nn.Linear, nn.Embedding)):
             module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-        elif isinstance(module, BertLayerNorm):
+        elif isinstance(module, nn.LayerNorm):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:
@@ -336,17 +336,19 @@ class BertStandard(nn.Module):
         super(BertStandard, self).__init__()
 
         print("loading pretrained bert from {}".format(args.bert_dir))
-        config_file = os.path.join(args.bert_dir, 'bert_config.json')
+        config_file = os.path.join(args.bert_dir, 'config.json')
         self.config = BertConfig.from_json_file(config_file)
         print("Model config {}".format(self.config))
         self.bert = BertModel.from_pretrained(args.bert_dir)
         
         # decoder
         self.decoder = Decoder(args, Y, None, self.config.hidden_size)
-        self.apply(self.init_bert_weights)
+
+        # self.apply(self.init_bert_weights)
 
     def forward(self, input_ids, token_type_ids, attention_mask, target):
-        encoder_output, _ = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
+        outputs = self.bert(input_ids, attention_mask, token_type_ids)
+        encoder_output = outputs.last_hidden_state
 
         y, loss = self.decoder(encoder_output, target, None)
         return y, loss
@@ -355,7 +357,7 @@ class BertStandard(nn.Module):
 
         if isinstance(module, (nn.Linear, nn.Embedding)):
             module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-        elif isinstance(module, BertLayerNorm):
+        elif isinstance(module, nn.LayerNorm):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:

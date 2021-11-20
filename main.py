@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import os
 import time
 from train_test import train, test
-from pytorch_pretrained_bert import BertAdam
+from transformers import AdamW, get_linear_schedule_with_warmup
 
 if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -80,6 +80,8 @@ if __name__ == "__main__":
         dev_loader = None
     test_loader = DataLoader(MyDataset(test_instances), 1, shuffle=False, collate_fn=collate_func, num_workers=args.num_workers, pin_memory=True)
 
+    scheduler = None
+    
     if not args.test_model and args.model.find("bert") != -1:
         param_optimizer = list(model.named_parameters())
         param_optimizer = [n for n in param_optimizer if 'pooler' not in n[0]]
@@ -91,12 +93,15 @@ if __name__ == "__main__":
         ]
 
         num_train_optimization_steps = int(
-            len(train_instances) / args.batch_size + 1) * args.n_epochs
+            len(train_instances) / (len(args.gpu_list) * args.batch_size) + 1) * args.n_epochs
+        num_warmup_steps = int(0.01 * num_train_optimization_steps)
 
-        optimizer = BertAdam(optimizer_grouped_parameters,
-                             lr=args.lr,
-                             warmup=0.1,
-                             t_total=num_train_optimization_steps)
+        optimizer = AdamW(optimizer_grouped_parameters,
+                          lr=args.lr,
+                          correct_bias=False)
+        scheduler = get_linear_schedule_with_warmup(optimizer,
+                                                    num_warmup_steps=num_warmup_steps,
+                                                    num_training_steps=num_train_optimization_steps)
 
     test_only = args.test_model is not None
 
@@ -110,7 +115,7 @@ if __name__ == "__main__":
 
         if not test_only:
             epoch_start = time.time()
-            losses = train(args, model, optimizer, epoch, args.gpu_list, train_loader)
+            losses = train(args, model, optimizer, scheduler, epoch, args.gpu_list, train_loader)
             loss = np.mean(losses)
             epoch_finish = time.time()
             print("epoch finish in %.2fs, loss: %.4f" % (epoch_finish - epoch_start, loss))

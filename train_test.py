@@ -3,7 +3,8 @@ import torch
 import numpy as np
 from utils import all_metrics, print_metrics
 
-def train(args, model, optimizer, epoch, gpu, data_loader):
+
+def train(args, model, optimizer, scheduler, epoch, gpu, data_loader):
 
     print("EPOCH %d" % epoch)
 
@@ -43,6 +44,9 @@ def train(args, model, optimizer, epoch, gpu, data_loader):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        if args.model.find("bert") != -1:
+            scheduler.step()
 
         losses.append(loss.item())
 
