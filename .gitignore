@@ -143,3 +143,7 @@ dmypy.json
 # server output
 *.out
 *.sh
+
+# Pycahrm
+.DS_Store
+.idea
