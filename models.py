@@ -291,46 +291,6 @@ class MultiResCNN(nn.Module):
 
 import os
 from transformers import BertConfig, BertModel
-
-class Bert_seq_cls(nn.Module):
-    def __init__(self, args, Y):
-        super(Bert_seq_cls, self).__init__()
-
-        print("loading pretrained bert from {}".format(args.bert_dir))
-        config_file = os.path.join(args.bert_dir, 'config.json')
-        self.config = BertConfig.from_json_file(config_file)
-        print("Model config {}".format(self.config))
-        self.bert = BertModel.from_pretrained(args.bert_dir)
-
-        self.dim_reduction = nn.Linear(self.config.hidden_size, args.num_filter_maps)
-        self.dropout = nn.Dropout(self.config.hidden_dropout_prob)
-        self.classifier = nn.Linear(args.num_filter_maps, Y)
-        # self.apply(self.init_bert_weights)
-
-    def forward(self, input_ids, token_type_ids, attention_mask, target):
-        outputs = self.bert(input_ids, attention_mask, token_type_ids)
-        pooled_output = outputs.pooler_output
-        x = self.dim_reduction(pooled_output)
-        x = self.dropout(x)
-        y = self.classifier(x)
-
-        loss = F.binary_cross_entropy_with_logits(y, target)
-        return y, loss
-
-    def init_bert_weights(self, module):
-
-        if isinstance(module, (nn.Linear, nn.Embedding)):
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-        elif isinstance(module, nn.LayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
-        if isinstance(module, nn.Linear) and module.bias is not None:
-            module.bias.data.zero_()
-
-    def freeze_net(self):
-        pass
-
-
 class BertStandard(nn.Module):
     def __init__(self, args, Y):
         super(BertStandard, self).__init__()
@@ -343,8 +303,6 @@ class BertStandard(nn.Module):
         
         # decoder
         self.decoder = Decoder(args, Y, None, self.config.hidden_size)
-
-        # self.apply(self.init_bert_weights)
 
     def forward(self, input_ids, token_type_ids, attention_mask, target):
         outputs = self.bert(input_ids, attention_mask, token_type_ids)
@@ -367,6 +325,35 @@ class BertStandard(nn.Module):
         pass
 
 
+from transformers import XLNetModel, XLNetConfig
+from transformers.modeling_utils import SequenceSummary
+class XLNet(nn.Module):
+
+    def __init__(self, args, Y):
+        super(XLNet, self).__init__()
+
+        print("loading pretrained xlnet from {}".format(args.xlnet_dir))
+        config_file = os.path.join(args.xlnet_dir, 'config.json')
+        self.config = XLNetConfig.from_json_file(config_file)
+        print("Model config {}".format(self.config))
+        self.xlnet = XLNetModel.from_pretrained(args.xlnet_dir)
+
+        # decoder
+        self.decoder = Decoder(args, Y, None, self.config.d_model)
+
+        # self.sequence_summary = SequenceSummary(self.config)
+
+        # self.classifier = nn.Linear(self.config.d_model, Y)
+
+    def forward(self, input_ids, token_type_ids, attention_mask, target):
+        xlnet_output = self.xlnet(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, return_dict=False)
+        output = xlnet_output[0]
+        y, loss = self.decoder(output, target, None)
+        return y, loss
+
+    def freeze_net(self):
+        pass
+
 
 def pick_model(args, dicts):
     Y = len(dicts['ind2c']) # total number of ICD codes
@@ -378,10 +365,10 @@ def pick_model(args, dicts):
         model = ResCNN(args, Y, dicts)
     elif args.model == 'MultiResCNN':
         model = MultiResCNN(args, Y, dicts)
-    elif args.model == 'bert_seq_cls':
-        model = Bert_seq_cls(args, Y)
-    elif args.model == 'bert_standard':
+    elif args.model == 'bert':
         model = BertStandard(args, Y)
+    elif args.model == 'xlnet':
+        model = XLNet(args, Y)
     else:
         raise RuntimeError("wrong model name")
 
