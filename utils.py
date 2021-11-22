@@ -591,6 +591,52 @@ def prepare_instance_bert(dicts, filename, args, max_length):
 
     return instances
 
+from transformers import XLNetTokenizer
+def prepare_instance_xlnet(dicts, filename, args, max_length):
+    ind2w, w2ind, ind2c, c2ind = dicts['ind2w'], dicts['w2ind'], dicts['ind2c'], dicts['c2ind']
+    instances = []
+    num_labels = len(dicts['ind2c'])
+
+    tokenizer = XLNetTokenizer.from_pretrained(args.xlnet_dir)
+
+    with open(filename, 'r') as infile:
+        r = csv.reader(infile)
+        # header
+        next(r)
+
+        for row in r:
+
+            text = row[2]
+
+            labels_idx = np.zeros(num_labels)
+            labelled = False
+
+            for l in row[3].split(';'):
+                if l in c2ind.keys():
+                    code = int(c2ind[l])
+                    labels_idx[code] = 1
+                    labelled = True
+            if not labelled:
+                continue
+
+            data = tokenizer(text)
+
+            tokens_id = data['input_ids']
+            masks = data['attention_mask']
+            segments = data['token_type_ids']
+
+            if len(tokens_id) > max_length:
+                tokens_id = tokens_id[:max_length]
+                masks = masks[:max_length]
+                segments = segments[:max_length]
+
+            dict_instance = {'label':labels_idx,
+                             "tokens_id": tokens_id, "segments": segments, "masks": masks}
+
+            instances.append(dict_instance)
+
+    return instances
+
 from torch.utils.data import Dataset
 class MyDataset(Dataset):
 
@@ -747,13 +793,13 @@ def all_macro(yhat, y):
     return macro_accuracy(yhat, y), macro_precision(yhat, y), macro_recall(yhat, y), macro_f1(yhat, y)
 
 def micro_accuracy(yhatmic, ymic):
-    return intersect_size(yhatmic, ymic, 0) / union_size(yhatmic, ymic, 0)
+    return intersect_size(yhatmic, ymic, 0) / (union_size(yhatmic, ymic, 0) + 1e-10)
 
 def micro_precision(yhatmic, ymic):
-    return intersect_size(yhatmic, ymic, 0) / yhatmic.sum(axis=0)
+    return intersect_size(yhatmic, ymic, 0) / (yhatmic.sum(axis=0) + 1e-10)
 
 def micro_recall(yhatmic, ymic):
-    return intersect_size(yhatmic, ymic, 0) / ymic.sum(axis=0)
+    return intersect_size(yhatmic, ymic, 0) / (ymic.sum(axis=0) + 1e-10)
 
 def micro_f1(yhatmic, ymic):
     prec = micro_precision(yhatmic, ymic)
@@ -761,7 +807,7 @@ def micro_f1(yhatmic, ymic):
     if prec + rec == 0:
         f1 = 0.
     else:
-        f1 = 2*(prec*rec)/(prec+rec)
+        f1 = 2 * (prec * rec) / (prec + rec)
     return f1
 
 def all_micro(yhatmic, ymic):

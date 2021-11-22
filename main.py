@@ -5,8 +5,8 @@ import numpy as np
 import torch
 import csv
 import sys
-from utils import load_lookups, prepare_instance, prepare_instance_bert, MyDataset, my_collate, my_collate_bert, \
-    early_stop, save_everything
+from utils import load_lookups, prepare_instance, prepare_instance_bert, prepare_instance_xlnet, \
+    MyDataset, my_collate, my_collate_bert, early_stop, save_everything
 from models import pick_model
 import torch.optim as optim
 from collections import defaultdict
@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import os
 import time
 from train_test import train, test
-from pytorch_pretrained_bert import BertAdam
+from transformers import AdamW, get_linear_schedule_with_warmup
 
 if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -49,15 +49,14 @@ if __name__ == "__main__":
     else:
         optimizer = None
 
-    if args.tune_wordemb == False:
-        model.freeze_net()
-
     metrics_hist = defaultdict(lambda: [])
     metrics_hist_te = defaultdict(lambda: [])
     metrics_hist_tr = defaultdict(lambda: [])
 
     if args.model.find("bert") != -1:
         prepare_instance_func = prepare_instance_bert
+    elif args.model.find("xlnet") != -1:
+        prepare_instance_func = prepare_instance_xlnet
     else:
         prepare_instance_func = prepare_instance
 
@@ -71,7 +70,7 @@ if __name__ == "__main__":
     test_instances = prepare_instance_func(dicts, args.data_path.replace('train','test'), args, args.MAX_LENGTH)
     print("test_instances {}".format(len(test_instances)))
 
-    if args.model.find("bert") != -1:
+    if args.model.find("bert") != -1 or args.model.find("xlnet") != -1:
         collate_func = my_collate_bert
     else:
         collate_func = partial(my_collate, use_elmo=args.use_elmo)
@@ -83,10 +82,12 @@ if __name__ == "__main__":
         dev_loader = None
     test_loader = DataLoader(MyDataset(test_instances), 1, shuffle=False, collate_fn=collate_func, num_workers=args.num_workers, pin_memory=True)
 
+    scheduler = None
+    
     if not args.test_model and args.model.find("bert") != -1:
         param_optimizer = list(model.named_parameters())
         param_optimizer = [n for n in param_optimizer if 'pooler' not in n[0]]
-        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight', 'gamma', 'beta']
         optimizer_grouped_parameters = [
             {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
              'weight_decay': 0.01},
@@ -94,12 +95,25 @@ if __name__ == "__main__":
         ]
 
         num_train_optimization_steps = int(
-            len(train_instances) / args.batch_size + 1) * args.n_epochs
+            len(train_instances) / (len(args.gpu_list) * args.batch_size) + 1) * args.n_epochs
+        num_warmup_steps = int(0.01 * num_train_optimization_steps)
 
-        optimizer = BertAdam(optimizer_grouped_parameters,
-                             lr=args.lr,
-                             warmup=0.1,
-                             t_total=num_train_optimization_steps)
+        optimizer = AdamW(optimizer_grouped_parameters,
+                          lr=args.lr,
+                          correct_bias=False)
+        scheduler = get_linear_schedule_with_warmup(optimizer,
+                                                    num_warmup_steps=num_warmup_steps,
+                                                    num_training_steps=num_train_optimization_steps)
+
+    elif not args.test_model and args.model.find("xlnet") != -1:
+        param_optimizer = list(model.named_parameters())
+        no_decay = ['bias', 'gamma', 'beta']
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
+             'weight_decay': 0.01},
+            {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=args.lr)
 
     test_only = args.test_model is not None
 
@@ -113,7 +127,7 @@ if __name__ == "__main__":
 
         if not test_only:
             epoch_start = time.time()
-            losses = train(args, model, optimizer, epoch, args.gpu_list, train_loader)
+            losses = train(args, model, optimizer, scheduler, epoch, args.gpu_list, train_loader)
             loss = np.mean(losses)
             epoch_finish = time.time()
             print("epoch finish in %.2fs, loss: %.4f" % (epoch_finish - epoch_start, loss))

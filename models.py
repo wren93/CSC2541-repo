@@ -290,42 +290,66 @@ class MultiResCNN(nn.Module):
             p.requires_grad = False
 
 import os
-from pytorch_pretrained_bert.modeling import BertLayerNorm
-from pytorch_pretrained_bert import BertModel, BertConfig
-class Bert_seq_cls(nn.Module):
-
+from transformers import BertConfig, BertModel
+class BertStandard(nn.Module):
     def __init__(self, args, Y):
-        super(Bert_seq_cls, self).__init__()
+        super(BertStandard, self).__init__()
 
         print("loading pretrained bert from {}".format(args.bert_dir))
-        config_file = os.path.join(args.bert_dir, 'bert_config.json')
+        config_file = os.path.join(args.bert_dir, 'config.json')
         self.config = BertConfig.from_json_file(config_file)
         print("Model config {}".format(self.config))
         self.bert = BertModel.from_pretrained(args.bert_dir)
-
-        self.dim_reduction = nn.Linear(self.config.hidden_size, args.num_filter_maps)
-        self.dropout = nn.Dropout(self.config.hidden_dropout_prob)
-        self.classifier = nn.Linear(args.num_filter_maps, Y)
-        self.apply(self.init_bert_weights)
+        
+        # decoder
+        self.decoder = Decoder(args, Y, None, self.config.hidden_size)
 
     def forward(self, input_ids, token_type_ids, attention_mask, target):
-        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
-        x = self.dim_reduction(pooled_output)
-        x = self.dropout(x)
-        y = self.classifier(x)
+        outputs = self.bert(input_ids, attention_mask, token_type_ids)
+        encoder_output = outputs.last_hidden_state
 
-        loss = F.binary_cross_entropy_with_logits(y, target)
+        y, loss = self.decoder(encoder_output, target, None)
         return y, loss
 
     def init_bert_weights(self, module):
 
         if isinstance(module, (nn.Linear, nn.Embedding)):
             module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-        elif isinstance(module, BertLayerNorm):
+        elif isinstance(module, nn.LayerNorm):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:
             module.bias.data.zero_()
+
+    def freeze_net(self):
+        pass
+
+
+from transformers import XLNetModel, XLNetConfig
+from transformers.modeling_utils import SequenceSummary
+class XLNet(nn.Module):
+
+    def __init__(self, args, Y):
+        super(XLNet, self).__init__()
+
+        print("loading pretrained xlnet from {}".format(args.xlnet_dir))
+        config_file = os.path.join(args.xlnet_dir, 'config.json')
+        self.config = XLNetConfig.from_json_file(config_file)
+        print("Model config {}".format(self.config))
+        self.xlnet = XLNetModel.from_pretrained(args.xlnet_dir)
+
+        # decoder
+        self.decoder = Decoder(args, Y, None, self.config.d_model)
+
+        # self.sequence_summary = SequenceSummary(self.config)
+
+        # self.classifier = nn.Linear(self.config.d_model, Y)
+
+    def forward(self, input_ids, token_type_ids, attention_mask, target):
+        xlnet_output = self.xlnet(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, return_dict=False)
+        output = xlnet_output[0]
+        y, loss = self.decoder(output, target, None)
+        return y, loss
 
     def freeze_net(self):
         pass
@@ -341,14 +365,18 @@ def pick_model(args, dicts):
         model = ResCNN(args, Y, dicts)
     elif args.model == 'MultiResCNN':
         model = MultiResCNN(args, Y, dicts)
-    elif args.model == 'bert_seq_cls':
-        model = Bert_seq_cls(args, Y)
+    elif args.model == 'bert':
+        model = BertStandard(args, Y)
+    elif args.model == 'xlnet':
+        model = XLNet(args, Y)
     else:
         raise RuntimeError("wrong model name")
 
     if args.test_model:
         sd = torch.load(args.test_model)
         model.load_state_dict(sd)
+    if args.tune_wordemb == False:
+        model.freeze_net()
     if len(args.gpu_list) == 1 and args.gpu_list[0] != -1: # single card training
         model.cuda()
     elif len(args.gpu_list) > 1: # multi-card training

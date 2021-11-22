@@ -3,7 +3,8 @@ import torch
 import numpy as np
 from utils import all_metrics, print_metrics
 
-def train(args, model, optimizer, epoch, gpu, data_loader):
+
+def train(args, model, optimizer, scheduler, epoch, gpu, data_loader):
 
     print("EPOCH %d" % epoch)
 
@@ -16,7 +17,7 @@ def train(args, model, optimizer, epoch, gpu, data_loader):
     data_iter = iter(data_loader)
     num_iter = len(data_loader)
     for i in range(num_iter):
-        if args.model.find("bert") != -1:
+        if args.model.find("bert") != -1 or args.model.find("xlnet") != -1:
 
             inputs_id, segments, masks, labels = next(data_iter)
 
@@ -44,6 +45,9 @@ def train(args, model, optimizer, epoch, gpu, data_loader):
         loss.backward()
         optimizer.step()
 
+        if args.model.find("bert") != -1:
+            scheduler.step()
+
         losses.append(loss.item())
 
     return losses
@@ -64,7 +68,7 @@ def test(args, model, data_path, fold, gpu, dicts, data_loader):
     for i in range(num_iter):
         with torch.no_grad():
 
-            if args.model.find("bert") != -1:
+            if args.model.find("bert") != -1 or args.model.find("xlnet") != -1:
                 inputs_id, segments, masks, labels = next(data_iter)
 
                 inputs_id, segments, masks, labels = torch.LongTensor(inputs_id), torch.LongTensor(segments), \
