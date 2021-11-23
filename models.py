@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_ as xavier_uniform
-from elmo.elmo import Elmo
+# from elmo.elmo import Elmo
 import json
 from utils import build_pretrain_embedding, load_embeddings
 from math import floor
@@ -30,12 +30,12 @@ class WordRep(nn.Module):
         self.feature_size = self.embed.embedding_dim
 
         self.use_elmo = args.use_elmo
-        if self.use_elmo:
-            self.elmo = Elmo(args.elmo_options_file, args.elmo_weight_file, 1, requires_grad=args.elmo_tune,
-                             dropout=args.elmo_dropout, gamma=args.elmo_gamma)
-            with open(args.elmo_options_file, 'r') as fin:
-                _options = json.load(fin)
-            self.feature_size += _options['lstm']['projection_dim'] * 2
+        # if self.use_elmo:
+        #     self.elmo = Elmo(args.elmo_options_file, args.elmo_weight_file, 1, requires_grad=args.elmo_tune,
+        #                      dropout=args.elmo_dropout, gamma=args.elmo_gamma)
+        #     with open(args.elmo_options_file, 'r') as fin:
+        #         _options = json.load(fin)
+        #     self.feature_size += _options['lstm']['projection_dim'] * 2
 
         self.embed_drop = nn.Dropout(p=args.dropout)
 
@@ -348,6 +348,57 @@ class XLNet(nn.Module):
     def forward(self, input_ids, token_type_ids, attention_mask, target):
         xlnet_output = self.xlnet(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, return_dict=False)
         output = xlnet_output[0]
+
+        # output = self.sequence_summary(output)
+        # y = self.classifier(output)
+        # loss = F.binary_cross_entropy_with_logits(y, target)
+
+        y, loss = self.decoder(output, target, None)
+        return y, loss
+
+    def freeze_net(self):
+        pass
+
+
+from transformers import LongformerModel, LongformerConfig
+class LongformerClassifier(nn.Module):
+
+    def __init__(self, args, Y):
+        super(LongformerClassifier, self).__init__()
+
+        print("loading pretrained longformer from {}".format(args.longformer_dir))
+        config_file = os.path.join(args.longformer_dir, 'config.json')
+        self.config = LongformerConfig.from_json_file(config_file)
+        print("Model config {}".format(self.config))
+        self.longformer = LongformerModel.from_pretrained(args.longformer_dir)
+
+        # decoder
+        self.decoder = Decoder(args, Y, None, self.config.hidden_size)
+
+        self.dropout = nn.Dropout(self.config.hidden_dropout_prob)
+        self.classifier = nn.Linear(self.config.hidden_size, Y)
+        # self.apply(self.init_bert_weights)
+
+    def forward(self, input_ids, token_type_ids, attention_mask, target, global_attention_mask=None):
+        if global_attention_mask is None:
+            global_attention_mask = torch.zeros_like(input_ids)
+            # global attention on cls token
+            global_attention_mask[:, 0] = 1
+
+        longformer_output = self.longformer(
+            input_ids=input_ids,
+            token_type_ids=token_type_ids,
+            attention_mask=attention_mask,
+            global_attention_mask=global_attention_mask,
+            return_dict=False
+        )
+
+        # pooled_output = longformer_output[1]
+        # output = self.dropout(output)
+        # y = self.classifier(output)
+        # loss = F.binary_cross_entropy_with_logits(y, target)
+
+        output = longformer_output[0]
         y, loss = self.decoder(output, target, None)
         return y, loss
 
@@ -369,6 +420,8 @@ def pick_model(args, dicts):
         model = BertStandard(args, Y)
     elif args.model == 'xlnet':
         model = XLNet(args, Y)
+    elif args.model == 'longformer':
+        model = LongformerClassifier(args, Y)
     else:
         raise RuntimeError("wrong model name")
 

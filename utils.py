@@ -639,6 +639,58 @@ def prepare_instance_xlnet(dicts, filename, args, max_length):
 
     return instances
 
+
+from transformers import LongformerTokenizer
+def prepare_instance_longformer(dicts, filename, args, max_length):
+    ind2w, w2ind, ind2c, c2ind = dicts['ind2w'], dicts['w2ind'], dicts['ind2c'], dicts['c2ind']
+    instances = []
+    num_labels = len(dicts['ind2c'])
+
+    tokenizer = LongformerTokenizer.from_pretrained(args.longformer_dir)
+
+    with open(filename, 'r') as infile:
+        r = csv.reader(infile)
+        # header
+        next(r)
+
+        for row in r:
+
+            text = row[2]
+
+            labels_idx = np.zeros(num_labels)
+            labelled = False
+
+            for l in row[3].split(';'):
+                if l in c2ind.keys():
+                    code = int(c2ind[l])
+                    labels_idx[code] = 1
+                    labelled = True
+            if not labelled:
+                continue
+
+            text = text.replace('[CLS]', '')
+            text = text.replace('[SEP]', '')
+            data = tokenizer(text)
+
+            tokens_id = data['input_ids']
+            masks = data['attention_mask']
+            segments = [0] * len(tokens_id)
+            # segments = data['token_type_ids']
+
+            if len(tokens_id) > max_length:
+                tokens_id = tokens_id[:max_length]
+                masks = masks[:max_length]
+                segments = segments[:max_length]
+
+            dict_instance = {'label': labels_idx,
+                             "tokens_id": tokens_id, "segments": segments, "masks": masks}
+
+            instances.append(dict_instance)
+
+    return instances
+
+
+
 from torch.utils.data import Dataset
 class MyDataset(Dataset):
 
@@ -660,7 +712,7 @@ def pad_sequence(x, max_len, type=np.int):
 
     return padded_x
 
-from elmo.elmo import batch_to_ids
+# from elmo.elmo import batch_to_ids
 def my_collate(x, use_elmo):
 
     words = [x_['tokens_id'] for x_ in x]
@@ -673,9 +725,9 @@ def my_collate(x, use_elmo):
     labels = [x_['label'] for x_ in x]
 
     text_inputs = torch.tensor([0])
-    if use_elmo:
-        text_inputs = [x_['tokens'] for x_ in x]
-        text_inputs = batch_to_ids(text_inputs)
+    # if use_elmo:
+    #     text_inputs = [x_['tokens'] for x_ in x]
+    #     text_inputs = batch_to_ids(text_inputs)
 
     return inputs_id, labels, text_inputs
 
