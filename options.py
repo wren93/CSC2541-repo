@@ -14,7 +14,7 @@ parser.add_argument("-version", type=str, choices=['mimic2', 'mimic3'], default=
 parser.add_argument("-MAX_LENGTH", type=int, default=2500)
 
 # model
-parser.add_argument("-model", type=str, choices=['CNN', 'MultiCNN', 'ResCNN', 'MultiResCNN', 'bert', 'xlnet'], default='MultiResCNN')
+parser.add_argument("-model", type=str, choices=['CNN', 'MultiCNN', 'ResCNN', 'MultiResCNN', 'bert', 'xlnet', 'longformer'], default='MultiResCNN')
 parser.add_argument("-filter_size", type=str, default="3,5,9,15,19,25")
 parser.add_argument("-num_filter_maps", type=int, default=50)
 parser.add_argument("-conv_layer", type=int, default=1)
@@ -48,6 +48,9 @@ parser.add_argument("-bert_dir", type=str, default='bert/bert-base-uncased')
 
 # xlnet
 parser.add_argument("-xlnet_dir", type=str, default='bert/xlnet-base-cased')
+
+# longformer
+parser.add_argument("-longformer_dir", type=str, default='bert/longformer-base-4096')
 
 args = parser.parse_args()
 command = ' '.join(['python'] + sys.argv)

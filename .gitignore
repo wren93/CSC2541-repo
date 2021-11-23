@@ -143,3 +143,6 @@ dmypy.json
 # server output
 *.out
 *.sh
+
+.idea
+test.py
