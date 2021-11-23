@@ -619,6 +619,8 @@ def prepare_instance_xlnet(dicts, filename, args, max_length):
             if not labelled:
                 continue
 
+            text = text.replace('[CLS]', '')
+            text = text.replace('[SEP]', '')
             data = tokenizer(text)
 
             tokens_id = data['input_ids']
