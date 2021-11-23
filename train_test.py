@@ -68,7 +68,7 @@ def test(args, model, data_path, fold, gpu, dicts, data_loader):
     for i in range(num_iter):
         with torch.no_grad():
 
-            if args.model.find("bert") != -1 or args.model.find("xlnet") != -1:
+            if args.model.find("bert") != -1 or args.model.find("xlnet") != -1 or args.model.find("longformer") != -1:
                 inputs_id, segments, masks, labels = next(data_iter)
 
                 inputs_id, segments, masks, labels = torch.LongTensor(inputs_id), torch.LongTensor(segments), \
