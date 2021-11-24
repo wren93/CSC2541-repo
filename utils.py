@@ -279,6 +279,47 @@ def write_discharge_summaries(out_file, min_sentence_len, notes_file):
     return out_file
 
 
+def write_discharge_summaries_with_sign(out_file, min_sentence_len, notes_file):
+    nlp_tool = nltk.data.load('tokenizers/punkt/english.pickle')
+    remove_pattern = re.compile("^.+Discharge Date:.+?]|Date of Birth:(.+?]|\s+)|Dictated By:(.|\s)+|Completed by:.+?]|Provider:(.+\s?Date/Time.+)")
+    print("processing notes file")
+    with open(notes_file, 'r') as csvfile, open(out_file, 'w') as outfile:
+        print("writing to %s" % out_file)
+        outfile.write(','.join(['SUBJECT_ID', 'HADM_ID', 'CHARTTIME', 'TEXT']) + '\n')
+        notereader = csv.reader(csvfile)
+        next(notereader)
+
+        for line in tqdm(notereader):
+            subj = int(line[1])
+            category = line[6]
+            if category == "Discharge summary":
+                note = line[10]
+                note = remove_pattern.sub("", note)
+                note = " ".join(note.split()).lower()
+
+                all_sents_inds = []
+                generator = nlp_tool.span_tokenize(note)
+                for t in generator:
+                    all_sents_inds.append(t)
+
+                text = ""
+                for ind in range(len(all_sents_inds)):
+                    start = all_sents_inds[ind][0]
+                    end = all_sents_inds[ind][1]
+
+                    sentence_txt = note[start:end].strip()
+
+                    if ind == 0:
+                        text += '[CLS] ' + sentence_txt + ' [SEP]'
+                    else:
+                        text += ' [CLS] ' + sentence_txt + ' [SEP]'
+
+                text = '"' + text + '"'
+                outfile.write(','.join([line[1], line[2], line[4], text]) + '\n')
+
+    return out_file
+
+
 def concat_data(labelsfile, notes_file, outfilename):
     """
         INPUTS:

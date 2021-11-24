@@ -5,7 +5,7 @@ import csv
 import operator
 from options import args
 from utils import build_vocab, word_embeddings, fasttext_embeddings, gensim_to_fasttext_embeddings, gensim_to_embeddings, \
-    reformat, write_discharge_summaries, concat_data, split_data
+    reformat, write_discharge_summaries, concat_data, split_data, write_discharge_summaries_with_sign
 
 
 
@@ -31,7 +31,7 @@ print("unique ICD9 code: {}".format(len(df['ICD9_CODE'].unique())))
 
 # step 2: process notes
 min_sentence_len = 3
-disch_full_file = write_discharge_summaries("%s/disch_full.csv" % args.MIMIC_3_DIR, min_sentence_len, '%s/NOTEEVENTS.csv' % (args.MIMIC_3_DIR))
+disch_full_file = write_discharge_summaries_with_sign("%s/disch_full.csv" % args.MIMIC_3_DIR, min_sentence_len, '%s/NOTEEVENTS.csv' % (args.MIMIC_3_DIR))
 
 
 df = pd.read_csv('%s/disch_full.csv' % args.MIMIC_3_DIR)
