@@ -103,7 +103,7 @@ class ProcessedIter(object):
 
     def __iter__(self):
         with open(self.filename) as f:
-            r = csv.reader(f)
+            r = csv.reader(f, delimiter='\t')
             next(r)
             for row in r:
                 yield (row[3].split())
@@ -149,7 +149,7 @@ def build_vocab(vocab_min, infile, vocab_filename):
             vocab_filename: name for the file to output
     """
     with open(infile, 'r') as csvfile:
-        reader = csv.reader(csvfile)
+        reader = csv.reader(csvfile, delimiter='\t')
         # header
         next(reader)
 
@@ -244,8 +244,8 @@ def write_discharge_summaries(out_file, min_sentence_len, notes_file):
     with open(notes_file, 'r') as csvfile:
         with open(out_file, 'w') as outfile:
             print("writing to %s" % (out_file))
-            outfile.write(','.join(['SUBJECT_ID', 'HADM_ID', 'CHARTTIME', 'TEXT']) + '\n')
-            notereader = csv.reader(csvfile)
+            outfile.write('\t'.join(['SUBJECT_ID', 'HADM_ID', 'CHARTTIME', 'TEXT']) + '\n')
+            notereader = csv.reader(csvfile, delimiter='\t')
             next(notereader)
 
             for line in tqdm(notereader):
@@ -273,20 +273,20 @@ def write_discharge_summaries(out_file, min_sentence_len, notes_file):
                             text += ' [CLS] ' + ' '.join(tokens) + ' [SEP]'
 
                     text = '"' + text + '"'
-                    outfile.write(','.join([line[1], line[2], line[4], text]) + '\n')
+                    outfile.write('\t'.join([line[1], line[2], line[4], text]) + '\n')
 
 
     return out_file
 
 
+from transformers import AutoTokenizer
 def write_discharge_summaries_with_sign(out_file, min_sentence_len, notes_file):
-    nlp_tool = nltk.data.load('tokenizers/punkt/english.pickle')
-    remove_pattern = re.compile("^.+Discharge Date:.+?]|Date of Birth:(.+?]|\s+)|Dictated By:(.|\s)+|Completed by:.+?]|Provider:(.+\s?Date/Time.+)")
+    remove_headtail_pattern = re.compile("^.+Discharge Date:.+?]|Date of Birth:(.+?]|\s+)|Dictated By:(.|\s)+|Completed by:.+?]|Provider:(.+\s?Date/Time.+)")
     print("processing notes file")
     with open(notes_file, 'r') as csvfile, open(out_file, 'w') as outfile:
         print("writing to %s" % out_file)
-        outfile.write(','.join(['SUBJECT_ID', 'HADM_ID', 'CHARTTIME', 'TEXT']) + '\n')
-        notereader = csv.reader(csvfile)
+        outfile.write('\t'.join(['SUBJECT_ID', 'HADM_ID', 'CHARTTIME', 'TEXT']) + '\n')
+        notereader = csv.reader(csvfile, delimiter='\t')
         next(notereader)
 
         for line in tqdm(notereader):
@@ -294,28 +294,35 @@ def write_discharge_summaries_with_sign(out_file, min_sentence_len, notes_file):
             category = line[6]
             if category == "Discharge summary":
                 note = line[10]
-                note = remove_pattern.sub("", note)
-                note = " ".join(note.split()).lower()
+                note = remove_headtail_pattern.sub("", note)
+                note = re.sub("[\-()*\[\]\n_]+", " ", note).lower()
+                note = re.sub("([^a-z0-9])", lambda x: ' {} '.format(x.group(1)), note)
 
-                all_sents_inds = []
-                generator = nlp_tool.span_tokenize(note)
-                for t in generator:
-                    all_sents_inds.append(t)
+                # note = re.sub("[^a-zA-Z0-9]", " ", note).lower()
 
-                text = ""
-                for ind in range(len(all_sents_inds)):
-                    start = all_sents_inds[ind][0]
-                    end = all_sents_inds[ind][1]
+                text = " ".join([i.strip(' ') for i in nltk.word_tokenize(note)])
+                # note = " ".join(note)
+                # note = " ".join(note.split()).lower()
 
-                    sentence_txt = note[start:end].strip()
+                # all_sents_inds = []
+                # generator = nlp_tool.span_tokenize(note)
+                # for t in generator:
+                #     all_sents_inds.append(t)
+                #
+                # text = ""
+                # for ind in range(len(all_sents_inds)):
+                #     start = all_sents_inds[ind][0]
+                #     end = all_sents_inds[ind][1]
+                #
+                #     sentence_txt = note[start:end].strip()
+                #
+                #     if ind == 0:
+                #         text += '[CLS] ' + sentence_txt + ' [SEP]'
+                #     else:
+                #         text += ' [CLS] ' + sentence_txt + ' [SEP]'
 
-                    if ind == 0:
-                        text += '[CLS] ' + sentence_txt + ' [SEP]'
-                    else:
-                        text += ' [CLS] ' + sentence_txt + ' [SEP]'
-
-                text = '"' + text + '"'
-                outfile.write(','.join([line[1], line[2], line[4], text]) + '\n')
+                # text = '"' + text + '"'
+                outfile.write('\t'.join([line[1], line[2], line[4], text]) + '\n')
 
     return out_file
 
@@ -331,7 +338,7 @@ def concat_data(labelsfile, notes_file, outfilename):
         with open(notes_file, 'r') as notesfile:
 
             with open(outfilename, 'w', newline='') as outfile:
-                w = csv.writer(outfile)
+                w = csv.writer(outfile, delimiter='\t')
                 w.writerow(['SUBJECT_ID', 'HADM_ID', 'TEXT', 'LABELS'])
 
                 labels_gen = next_labels(lf)
@@ -359,9 +366,9 @@ def split_data(labeledfile, base_name, mimic_dir):
     train_file = open(train_name, 'w')
     dev_file = open(dev_name, 'w')
     test_file = open(test_name, 'w')
-    train_file.write(','.join(['SUBJECT_ID', 'HADM_ID', 'TEXT', 'LABELS']) + "\n")
-    dev_file.write(','.join(['SUBJECT_ID', 'HADM_ID', 'TEXT', 'LABELS']) + "\n")
-    test_file.write(','.join(['SUBJECT_ID', 'HADM_ID', 'TEXT', 'LABELS']) + "\n")
+    train_file.write('\t'.join(['SUBJECT_ID', 'HADM_ID', 'TEXT', 'LABELS']) + "\n")
+    dev_file.write('\t'.join(['SUBJECT_ID', 'HADM_ID', 'TEXT', 'LABELS']) + "\n")
+    test_file.write('\t'.join(['SUBJECT_ID', 'HADM_ID', 'TEXT', 'LABELS']) + "\n")
 
     hadm_ids = {}
 
@@ -373,7 +380,7 @@ def split_data(labeledfile, base_name, mimic_dir):
                 hadm_ids[splt].add(line.rstrip())
 
     with open(labeledfile, 'r') as lf:
-        reader = csv.reader(lf)
+        reader = csv.reader(lf, delimiter='\t')
         next(reader)
         i = 0
         cur_hadm = 0
@@ -388,11 +395,11 @@ def split_data(labeledfile, base_name, mimic_dir):
             hadm_id = row[1]
 
             if hadm_id in hadm_ids['train']:
-                train_file.write(','.join(row) + "\n")
+                train_file.write('\t'.join(row) + "\n")
             elif hadm_id in hadm_ids['dev']:
-                dev_file.write(','.join(row) + "\n")
+                dev_file.write('\t'.join(row) + "\n")
             elif hadm_id in hadm_ids['test']:
-                test_file.write(','.join(row) + "\n")
+                test_file.write('\t'.join(row) + "\n")
 
             i += 1
 
@@ -406,7 +413,7 @@ def next_labels(labelsfile):
     """
         Generator for label sets from the label file
     """
-    labels_reader = csv.reader(labelsfile)
+    labels_reader = csv.reader(labelsfile, delimiter='\t')
     # header
     next(labels_reader)
 
@@ -437,7 +444,7 @@ def next_notes(notesfile):
         Generator for notes from the notes file
         This will also concatenate discharge summaries and their addenda, which have the same subject and hadm id
     """
-    nr = csv.reader(notesfile)
+    nr = csv.reader(notesfile, delimiter='\t')
     # header
     next(nr)
 
@@ -486,7 +493,7 @@ def load_full_codes(train_path, mimic2_dir, version='mimic3'):
         ind2c = defaultdict(str)
         codes = set()
         with open(mimic2_dir, 'r') as f:
-            r = csv.reader(f)
+            r = csv.reader(f, delimiter='\t')
             #header
             next(r)
             for row in r:
@@ -497,7 +504,7 @@ def load_full_codes(train_path, mimic2_dir, version='mimic3'):
         codes = set()
         for split in ['train', 'dev', 'test']:
             with open(train_path.replace('train', split), 'r') as f:
-                lr = csv.reader(f)
+                lr = csv.reader(f, delimiter='\t')
                 next(lr)
                 for row in lr:
                     for code in row[3].split(';'):
@@ -516,7 +523,7 @@ def load_lookups(args):
     else:
         codes = set()
         with open("%s/TOP_%s_CODES.csv" % (args.MIMIC_3_DIR, str(args.Y)), 'r') as labelfile:
-            lr = csv.reader(labelfile)
+            lr = csv.reader(labelfile, delimiter='\t')
             for i,row in enumerate(lr):
                 codes.add(row[0])
         ind2c = {i:c for i,c in enumerate(sorted(codes))}
@@ -533,7 +540,7 @@ def prepare_instance(dicts, filename, args, max_length):
     num_labels = len(dicts['ind2c'])
 
     with open(filename, 'r') as infile:
-        r = csv.reader(infile)
+        r = csv.reader(infile, delimiter='\t')
         #header
         next(r)
 
@@ -584,7 +591,7 @@ def prepare_instance_bert(dicts, filename, args, max_length):
     wp_tokenizer = BertTokenizer.from_pretrained(args.bert_dir, do_lower_case=True)
 
     with open(filename, 'r') as infile:
-        r = csv.reader(infile)
+        r = csv.reader(infile, delimiter='\t')
         #header
         next(r)
 
@@ -641,7 +648,7 @@ def prepare_instance_xlnet(dicts, filename, args, max_length):
     tokenizer = XLNetTokenizer.from_pretrained(args.xlnet_dir)
 
     with open(filename, 'r') as infile:
-        r = csv.reader(infile)
+        r = csv.reader(infile, delimiter='\t')
         # header
         next(r)
 
@@ -688,7 +695,7 @@ def prepare_instance_longformer(dicts, filename, args, max_length):
     tokenizer = LongformerTokenizer.from_pretrained(args.longformer_dir)
 
     with open(filename, 'r') as infile:
-        r = csv.reader(infile)
+        r = csv.reader(infile, delimiter='\t')
         # header
         next(r)
 

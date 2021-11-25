@@ -13,8 +13,8 @@ Y = 'full'
 notes_file = '%s/NOTEEVENTS.csv' % args.MIMIC_3_DIR
 
 # step 1: process code-related files
-dfproc = pd.read_csv('%s/PROCEDURES_ICD.csv' % args.MIMIC_3_DIR)
-dfdiag = pd.read_csv('%s/DIAGNOSES_ICD.csv' % args.MIMIC_3_DIR)
+dfproc = pd.read_csv('%s/PROCEDURES_ICD.csv' % args.MIMIC_3_DIR, sep='\t')
+dfdiag = pd.read_csv('%s/DIAGNOSES_ICD.csv' % args.MIMIC_3_DIR, sep='\t')
 
 dfdiag['absolute_code'] = dfdiag.apply(lambda row: str(reformat(str(row[4]), True)), axis=1)
 dfproc['absolute_code'] = dfproc.apply(lambda row: str(reformat(str(row[4]), False)), axis=1)
@@ -24,9 +24,9 @@ dfcodes = pd.concat([dfdiag, dfproc])
 
 dfcodes.to_csv('%s/ALL_CODES.csv' % args.MIMIC_3_DIR, index=False,
            columns=['ROW_ID', 'SUBJECT_ID', 'HADM_ID', 'SEQ_NUM', 'absolute_code'],
-           header=['ROW_ID', 'SUBJECT_ID', 'HADM_ID', 'SEQ_NUM', 'ICD9_CODE'])
+           header=['ROW_ID', 'SUBJECT_ID', 'HADM_ID', 'SEQ_NUM', 'ICD9_CODE'], sep='\t')
 
-df = pd.read_csv('%s/ALL_CODES.csv' % args.MIMIC_3_DIR, dtype={"ICD9_CODE": str})
+df = pd.read_csv('%s/ALL_CODES.csv' % args.MIMIC_3_DIR, dtype={"ICD9_CODE": str}, sep='\t')
 print("unique ICD9 code: {}".format(len(df['ICD9_CODE'].unique())))
 
 # step 2: process notes
@@ -34,7 +34,7 @@ min_sentence_len = 3
 disch_full_file = write_discharge_summaries_with_sign("%s/disch_full.csv" % args.MIMIC_3_DIR, min_sentence_len, '%s/NOTEEVENTS.csv' % (args.MIMIC_3_DIR))
 
 
-df = pd.read_csv('%s/disch_full.csv' % args.MIMIC_3_DIR)
+df = pd.read_csv('%s/disch_full.csv' % args.MIMIC_3_DIR, sep='\t')
 
 df = df.sort_values(['SUBJECT_ID', 'HADM_ID'])
 
@@ -42,9 +42,9 @@ df = df.sort_values(['SUBJECT_ID', 'HADM_ID'])
 hadm_ids = set(df['HADM_ID'])
 with open('%s/ALL_CODES.csv' % args.MIMIC_3_DIR, 'r') as lf:
     with open('%s/ALL_CODES_filtered.csv' % args.MIMIC_3_DIR, 'w', newline='') as of:
-        w = csv.writer(of)
+        w = csv.writer(of, delimiter='\t')
         w.writerow(['SUBJECT_ID', 'HADM_ID', 'ICD9_CODE', 'ADMITTIME', 'DISCHTIME'])
-        r = csv.reader(lf)
+        r = csv.reader(lf, delimiter='\t')
         #header
         next(r)
         for i,row in enumerate(r):
@@ -54,18 +54,18 @@ with open('%s/ALL_CODES.csv' % args.MIMIC_3_DIR, 'r') as lf:
             if hadm_id in hadm_ids:
                 w.writerow(row[1:3] + [row[-1], '', ''])
 
-dfl = pd.read_csv('%s/ALL_CODES_filtered.csv' % args.MIMIC_3_DIR, index_col=None)
+dfl = pd.read_csv('%s/ALL_CODES_filtered.csv' % args.MIMIC_3_DIR, index_col=None, sep='\t')
 
 dfl = dfl.sort_values(['SUBJECT_ID', 'HADM_ID'])
-dfl.to_csv('%s/ALL_CODES_filtered.csv' % args.MIMIC_3_DIR, index=False)
+dfl.to_csv('%s/ALL_CODES_filtered.csv' % args.MIMIC_3_DIR, index=False, sep='\t')
 
 sorted_file = '%s/disch_full.csv' % args.MIMIC_3_DIR
-df.to_csv(sorted_file, index=False)
+df.to_csv(sorted_file, index=False, sep='\t')
 
 # step 4: link notes with their code
 labeled = concat_data('%s/ALL_CODES_filtered.csv' % args.MIMIC_3_DIR, sorted_file, '%s/notes_labeled.csv' % args.MIMIC_3_DIR)
 
-dfnl = pd.read_csv(labeled)
+dfnl = pd.read_csv(labeled, sep='\t')
 
 # step 5: statistic unique word, total word, HADM_ID number
 types = set()
@@ -91,10 +91,10 @@ build_vocab(vocab_min, tr, vname)
 # step 7: sort data by its note length, add length to the last column
 for splt in ['train', 'dev', 'test']:
     filename = '%s/disch_%s_split.csv' % (args.MIMIC_3_DIR, splt)
-    df = pd.read_csv(filename)
+    df = pd.read_csv(filename, sep='\t')
     df['length'] = df.apply(lambda row: len(str(row['TEXT']).split()), axis=1)
     df = df.sort_values(['length'])
-    df.to_csv('%s/%s_full.csv' % (args.MIMIC_3_DIR, splt), index=False)
+    df.to_csv('%s/%s_full.csv' % (args.MIMIC_3_DIR, splt), index=False, sep='\t')
 
 # step 8: train word embeddings via word2vec and fasttext
 w2v_file = word_embeddings('full', '%s/disch_full.csv' % args.MIMIC_3_DIR, 100, 0, 5)
@@ -107,7 +107,7 @@ gensim_to_fasttext_embeddings('%s/processed_full.fasttext' % args.MIMIC_3_DIR, '
 Y = 50
 
 counts = Counter()
-dfnl = pd.read_csv('%s/notes_labeled.csv' % args.MIMIC_3_DIR)
+dfnl = pd.read_csv('%s/notes_labeled.csv' % args.MIMIC_3_DIR, sep='\t')
 for row in dfnl.itertuples():
     for label in str(row[4]).split(';'):
         counts[label] += 1
@@ -117,7 +117,7 @@ codes_50 = sorted(counts.items(), key=operator.itemgetter(1), reverse=True)
 codes_50 = [code[0] for code in codes_50[:Y]]
 
 with open('%s/TOP_%s_CODES.csv' % (args.MIMIC_3_DIR, str(Y)), 'w', newline='') as of:
-    w = csv.writer(of)
+    w = csv.writer(of, delimiter='\t')
     for code in codes_50:
         w.writerow([code])
 
@@ -130,8 +130,8 @@ for splt in ['train', 'dev', 'test']:
             hadm_ids.add(line.rstrip())
     with open('%s/notes_labeled.csv' % args.MIMIC_3_DIR, 'r') as f:
         with open('%s/%s_%s.csv' % (args.MIMIC_3_DIR, splt, str(Y)), 'w', newline='') as of:
-            r = csv.reader(f)
-            w = csv.writer(of)
+            r = csv.reader(f, delimiter='\t')
+            w = csv.writer(of, delimiter='\t')
             #header
             w.writerow(next(r))
             i = 0
@@ -148,7 +148,7 @@ for splt in ['train', 'dev', 'test']:
 # step 11: sort data by its note length, add length to the last column
 for splt in ['train', 'dev', 'test']:
     filename = '%s/%s_%s.csv' % (args.MIMIC_3_DIR, splt, str(Y))
-    df = pd.read_csv(filename)
+    df = pd.read_csv(filename, sep='\t')
     df['length'] = df.apply(lambda row: len(str(row['TEXT']).split()), axis=1)
     df = df.sort_values(['length'])
-    df.to_csv('%s/%s_%s.csv' % (args.MIMIC_3_DIR, splt, str(Y)), index=False)
+    df.to_csv('%s/%s_%s.csv' % (args.MIMIC_3_DIR, splt, str(Y)), index=False, sep='\t')
