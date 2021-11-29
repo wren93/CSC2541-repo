@@ -28,7 +28,7 @@ def train(args, model, optimizer, scheduler, epoch, gpu, data_loader):
                 inputs_id, segments, masks, labels = inputs_id.cuda(), segments.cuda(), \
                                                      masks.cuda(), labels.cuda()
 
-            output, loss = model(inputs_id, segments, masks, labels)
+            output, loss, _, _ = model(inputs_id, segments, masks, labels)
         else:
             inputs_id, labels, text_inputs = next(data_iter)
 
@@ -37,7 +37,7 @@ def train(args, model, optimizer, scheduler, epoch, gpu, data_loader):
             if gpu[0] >= 0:
                 inputs_id, labels, text_inputs = inputs_id.cuda(), labels.cuda(), text_inputs.cuda()
 
-            output, loss = model(inputs_id, labels, text_inputs)
+            output, loss, _, _ = model(inputs_id, labels, text_inputs)
 
         if len(gpu) > 1:
             loss = loss.mean()
@@ -77,7 +77,7 @@ def test(args, model, data_path, fold, gpu, dicts, data_loader):
                 if gpu[0] >= 0:
                     inputs_id, segments, masks, labels = inputs_id.cuda(), segments.cuda(), masks.cuda(), labels.cuda()
 
-                output, loss = model(inputs_id, segments, masks, labels)
+                output, loss, _, _ = model(inputs_id, segments, masks, labels)
             else:
 
                 inputs_id, labels, text_inputs = next(data_iter)
@@ -87,7 +87,7 @@ def test(args, model, data_path, fold, gpu, dicts, data_loader):
                 if gpu[0] >= 0:
                     inputs_id, labels, text_inputs = inputs_id.cuda(), labels.cuda(), text_inputs.cuda()
 
-                output, loss = model(inputs_id, labels, text_inputs)
+                output, loss, _, _ = model(inputs_id, labels, text_inputs)
 
             output = torch.sigmoid(output)
             output = output.data.cpu().numpy()
