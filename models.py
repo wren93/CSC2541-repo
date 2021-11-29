@@ -86,7 +86,7 @@ class Decoder(nn.Module):
         y = self.final.weight.mul(m).sum(dim=2).add(self.final.bias)
 
         loss = self.loss_function(y, target)
-        return y, loss
+        return y, loss, alpha, m
 
 
 class CNN(nn.Module):
@@ -113,8 +113,8 @@ class CNN(nn.Module):
 
         x = torch.tanh(self.conv(x).transpose(1, 2))
 
-        y, loss = self.output_layer(x, target, text_inputs)
-        return y, loss
+        y, loss, alpha, m = self.output_layer(x, target, text_inputs)
+        return y, loss, alpha, m
 
     def freeze_net(self):
         for p in self.word_rep.embed.parameters():
@@ -162,9 +162,9 @@ class MultiCNN(nn.Module):
                 conv_result.append(torch.tanh(tmp(x).transpose(1, 2)))
             x = torch.cat(conv_result, dim=2)
 
-        y, loss = self.output_layer(x, target, text_inputs)
+        y, loss, alpha, m = self.output_layer(x, target, text_inputs)
 
-        return y, loss
+        return y, loss, alpha, m
 
     def freeze_net(self):
         for p in self.word_rep.embed.parameters():
@@ -225,9 +225,9 @@ class ResCNN(nn.Module):
             x = conv(x)
         x = x.transpose(1, 2)
 
-        y, loss = self.output_layer(x, target, text_inputs)
+        y, loss, alpha, m = self.output_layer(x, target, text_inputs)
 
-        return y, loss
+        return y, loss, alpha, m
 
     def freeze_net(self):
         for p in self.word_rep.embed.parameters():
@@ -281,9 +281,9 @@ class MultiResCNN(nn.Module):
             conv_result.append(tmp)
         x = torch.cat(conv_result, dim=2)
 
-        y, loss = self.output_layer(x, target, text_inputs)
+        y, loss, alpha, m = self.output_layer(x, target, text_inputs)
 
-        return y, loss
+        return y, loss, alpha, m
 
     def freeze_net(self):
         for p in self.word_rep.embed.parameters():
@@ -308,8 +308,8 @@ class BertStandard(nn.Module):
         outputs = self.bert(input_ids, attention_mask, token_type_ids)
         encoder_output = outputs.last_hidden_state
 
-        y, loss = self.decoder(encoder_output, target, None)
-        return y, loss
+        y, loss, alpha, m = self.decoder(encoder_output, target, None)
+        return y, loss, alpha, m
 
     def init_bert_weights(self, module):
 
@@ -341,9 +341,9 @@ class XLNet(nn.Module):
         # decoder
         self.decoder = Decoder(args, Y, None, self.config.d_model)
 
-        # self.sequence_summary = SequenceSummary(self.config)
+        self.sequence_summary = SequenceSummary(self.config)
 
-        # self.classifier = nn.Linear(self.config.d_model, Y)
+        self.classifier = nn.Linear(self.config.d_model, Y)
 
     def forward(self, input_ids, token_type_ids, attention_mask, target):
         xlnet_output = self.xlnet(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, return_dict=False)
@@ -353,8 +353,8 @@ class XLNet(nn.Module):
         # y = self.classifier(output)
         # loss = F.binary_cross_entropy_with_logits(y, target)
 
-        y, loss = self.decoder(output, target, None)
-        return y, loss
+        y, loss, alpha, m = self.decoder(output, target, None)
+        return y, loss, alpha, m
 
     def freeze_net(self):
         pass
@@ -370,7 +370,7 @@ class LongformerClassifier(nn.Module):
         config_file = os.path.join(args.longformer_dir, 'config.json')
         self.config = LongformerConfig.from_json_file(config_file)
         print("Model config {}".format(self.config))
-        self.longformer = LongformerModel.from_pretrained(args.longformer_dir)
+        self.longformer = LongformerModel.from_pretrained(args.longformer_dir, gradient_checkpointing=True)
 
         # decoder
         self.decoder = Decoder(args, Y, None, self.config.hidden_size)
@@ -383,7 +383,7 @@ class LongformerClassifier(nn.Module):
         if global_attention_mask is None:
             global_attention_mask = torch.zeros_like(input_ids)
             # global attention on cls token
-            global_attention_mask[:, 0] = 1
+            # global_attention_mask[:, 0] = 1 # this line should be commented if using decoder
 
         longformer_output = self.longformer(
             input_ids=input_ids,
@@ -399,8 +399,8 @@ class LongformerClassifier(nn.Module):
         # loss = F.binary_cross_entropy_with_logits(y, target)
 
         output = longformer_output[0]
-        y, loss = self.decoder(output, target, None)
-        return y, loss
+        y, loss, alpha, m = self.decoder(output, target, None)
+        return y, loss, alpha, m
 
     def freeze_net(self):
         pass

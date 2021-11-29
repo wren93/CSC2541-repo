@@ -621,6 +621,7 @@ def prepare_instance_xlnet(dicts, filename, args, max_length):
 
             text = text.replace('[CLS]', '')
             text = text.replace('[SEP]', '')
+            text = ' '.join(text.split())
             data = tokenizer(text)
 
             tokens_id = data['input_ids']
@@ -670,6 +671,7 @@ def prepare_instance_longformer(dicts, filename, args, max_length):
 
             text = text.replace('[CLS]', '')
             text = text.replace('[SEP]', '')
+            text = ' '.join(text.split())
             data = tokenizer(text)
 
             tokens_id = data['input_ids']
