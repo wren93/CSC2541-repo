@@ -49,22 +49,22 @@ python preprocess_mimic3.py
 
 Training
 -----
-1. Train BERT models using MIMIC-III full code dataset
+1. Train BERT models using MIMIC-III full code dataset:
 ```sh
 python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model bert_standard -MAX_LENGTH 512 -criterion prec_at_8 -gpu '0' -num_workers 4 -bert_dir path/to/bert/dir
 ```
 
-2. Train XLNet models using MIMIC-III full code dataset
+2. Train XLNet models using MIMIC-III full code dataset:
 ```sh
 python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model xlnet -MAX_LENGTH 1500 -batch_size 8 -lr 2e-5 -criterion prec_at_8 -gpu '0' -num_workers 4 -xlnet_dir path/to/xlnet/dir
 ```
 
-3. Train Longformer models using MIMIC-III full code dataset
+3. Train Longformer models using MIMIC-III full code dataset:
 ```sh
 python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model longformer -MAX_LENGTH 3200 -batch_size 4 -lr 1e-5 -criterion prec_at_8 -gpu '0' -num_workers 4 -longformer_dir path/to/longformer/dir
 ```
   
-4. Train the baseline MultiResCNN model using MIMIC-III top-50 code dataset
+4. Train the baseline MultiResCNN model using MIMIC-III top-50 code dataset:
 ```sh
 python main.py -data_path ./data/mimic3/train_50.csv -vocab ./data/mimic3/vocab.csv -Y 50 -model MultiResCNN -MAX_LENGTH 2500 -embed_file ./data/mimic3/processed_full.embed -criterion prec_at_5 -gpu '0' -num_workers 4 -tune_wordemb 
 ```
