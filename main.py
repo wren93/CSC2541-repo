@@ -1,4 +1,3 @@
-from functools import partial
 from options import args
 import random
 import numpy as np
@@ -75,7 +74,7 @@ if __name__ == "__main__":
     if args.model.find("bert") != -1 or args.model.find("xlnet") != -1 or args.model.find("longformer") != -1:
         collate_func = my_collate_bert
     else:
-        collate_func = partial(my_collate, use_elmo=args.use_elmo)
+        collate_func = my_collate
 
     train_loader = DataLoader(MyDataset(train_instances), args.batch_size, shuffle=True, collate_fn=collate_func, num_workers=args.num_workers, pin_memory=True)
     if args.version != 'mimic2':
@@ -187,6 +186,3 @@ if __name__ == "__main__":
                 test_only = True
                 args.test_model = '%s/model_best_%s.pth' % (model_dir, args.criterion)
                 model = pick_model(args, dicts)
-
-
-

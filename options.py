@@ -35,14 +35,6 @@ parser.add_argument("-num_workers", type=int, default=16)
 parser.add_argument("-tune_wordemb", action="store_const", const=True, default=False)
 parser.add_argument('-random_seed', type=int, default=1, help='0 if randomly initialize the model, other if fix the seed')
 
-# elmo
-parser.add_argument("-elmo_options_file", type=str, default='elmo_small/elmo_2x1024_128_2048cnn_1xhighway_options.json')
-parser.add_argument("-elmo_weight_file", type=str, default='elmo_small/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5')
-parser.add_argument("-elmo_tune", action="store_const", const=True, default=False)
-parser.add_argument("-elmo_dropout", type=float, default=0)
-parser.add_argument("-use_elmo", action="store_const", const=True, default=False)
-parser.add_argument("-elmo_gamma", type=float, default=0.1)
-
 # bert
 parser.add_argument("-bert_dir", type=str, default='bert/bert-base-uncased')
 

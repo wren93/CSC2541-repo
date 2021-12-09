@@ -1,5 +1,4 @@
 import sys
-from functools import partial
 import argparse
 import numpy as np
 import torch
@@ -38,7 +37,6 @@ if __name__ == "__main__":
     parser.add_argument("-num_workers", type=int, default=16)
     parser.add_argument("-tune_wordemb", action="store_const", const=True, default=False)
     parser.add_argument('-random_seed', type=int, default=1, help='0 if randomly initialize the model, other if fix the seed')
-    parser.add_argument("-use_elmo", action="store_const", const=True, default=False)
     parser.add_argument("-dropout", type=float, default=0.2)
 
     # bert
@@ -83,12 +81,12 @@ if __name__ == "__main__":
     sorted_index = np.argsort(-label_count)
 
     selected_label_list = list(sorted_index[:1])
-    selected_label_list = [2534] # 1134
+    selected_label_list = [2534]
 
     if args.model.find("bert") != -1 or args.model.find("xlnet") != -1 or args.model.find("longformer") != -1:
         collate_func = my_collate_bert
     else:
-        collate_func = partial(my_collate, use_elmo=args.use_elmo)
+        collate_func = my_collate
     test_loader = DataLoader(MyDataset(test_instances), 1, shuffle=False, collate_fn=collate_func, num_workers=0, pin_memory=True)
 
     gpu = args.gpu_list

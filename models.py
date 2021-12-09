@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_ as xavier_uniform
-# from elmo.elmo import Elmo
 import json
 from utils import build_pretrain_embedding, load_embeddings
 from math import floor
@@ -29,14 +28,6 @@ class WordRep(nn.Module):
             self.embed = nn.Embedding(len(dicts['w2ind']) + 2, args.embed_size, padding_idx=0)
         self.feature_size = self.embed.embedding_dim
 
-        self.use_elmo = args.use_elmo
-        # if self.use_elmo:
-        #     self.elmo = Elmo(args.elmo_options_file, args.elmo_weight_file, 1, requires_grad=args.elmo_tune,
-        #                      dropout=args.elmo_dropout, gamma=args.elmo_gamma)
-        #     with open(args.elmo_options_file, 'r') as fin:
-        #         _options = json.load(fin)
-        #     self.feature_size += _options['lstm']['projection_dim'] * 2
-
         self.embed_drop = nn.Dropout(p=args.dropout)
 
         self.conv_dict = {1: [self.feature_size, args.num_filter_maps],
@@ -48,11 +39,6 @@ class WordRep(nn.Module):
 
     def forward(self, x, target, text_inputs):
         features = [self.embed(x)]
-
-        if self.use_elmo:
-            elmo_outputs = self.elmo(text_inputs)
-            elmo_outputs = elmo_outputs['elmo_representations'][0]
-            features.append(elmo_outputs)
 
         x = torch.cat(features, dim=2)
 
