@@ -1,8 +1,6 @@
-# CSC2541-repo
+# Transformer-based Automated ICD Coding
 
-(work in progress)
-
-Adapted from Multi Filter Residual Convolutional Neural Network for Text Classification
+Final project repository for the course CSC2541 Topics in Machine Learning: Machine Learning for Healthcare at the University of Toronto.
 
 Setup
 -----
@@ -24,56 +22,65 @@ Or run this command in the terminal:
 pip install -r requirements.txt
 ```
 
-Usage
+Data Preprocessing
 -----
-1. Data preprocessing
-
-Our process of preparing data just follows [CAML](https://github.com/jamesmullenbach/caml-mimic) with slight modifications. 
-Put the files of MIMIC III and II into the 'data' dir as below:
+We use MIMIC-III for model training and evaluation. We use the same data preprocessing code as [MultiResCNN](https://github.com/foxlf823/Multi-Filter-Residual-Convolutional-Neural-Network). To set up the dataset, place the MIMIC-III files into `./data` as shown below:
 ```
 data
 |   D_ICD_DIAGNOSES.csv
 |   D_ICD_PROCEDURES.csv
-└───mimic2/
-|   |   MIMIC_RAW_DSUMS
-|   |   MIMIC_ICD9_mapping
-|   |   training_indices.data
-|   |   testing_indices.data
 └───mimic3/
 |   |   NOTEEVENTS.csv
 |   |   DIAGNOSES_ICD.csv
 |   |   PROCEDURES_ICD.csv
-|   |   *_hadm_ids.csv (get from CAML)
+|   |   train_full_hadm_ids.csv
+|   |   train_50_hadm_ids.csv
+|   |   dev_full_hadm_ids.csv
+|   |   dev_50_hadm_ids.csv
+|   |   test_full_hadm_ids.csv
+|   |   test_50_hadm_ids.csv
 ```
-Run ```python preprocess_mimic3.py``` and ```python preprocess_mimic2.py```.
+The `*_hadm_ids.csv` files can be found [here](https://github.com/jamesmullenbach/caml-mimic/tree/master/mimicdata/mimic3).
 
-2. Train and test using full MIMIC-III data
-  ```
-  python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model MultiResCNN -embed_file ./data/mimic3/processed_full.embed -criterion prec_at_8 -gpu 0 -tune_wordemb
-  ```
-3. Train and test using top-50 MIMIC-III data
-  ```
-  python main.py -data_path ./data/mimic3/train_50.csv -vocab ./data/mimic3/vocab.csv -Y 50 -model MultiResCNN -embed_file ./data/mimic3/processed_full.embed -criterion prec_at_5 -gpu 0 -tune_wordemb
-  ```
-4. Train and test using full MIMIC-II data
-  ```
-  python main.py -data_path ./data/mimic2/train.csv -vocab ./data/mimic2/vocab.csv -Y full -version mimic2 -model MultiResCNN -embed_file ./data/mimic2/processed_full.embed -criterion prec_at_8 -gpu 0 -tune_wordemb  
-  ```
-5. If you want to use ELMo, add ```-use_elmo``` on the above commands.
+After setting up the files, run the following command to preprocess the data:
+```sh
+python preprocess_mimic3.py
+```
 
-6. Train and test using top-50 MIMIC-III data and BERT
-  ```
-  python main.py -data_path ./data/mimic3/train_50.csv -vocab ./data/mimic3/vocab.csv -Y 50 -model bert_seq_cls -criterion prec_at_5 -gpu 0 -MAX_LENGTH 512 -bert_dir <your bert dir>
-  ```
-
-Usage
+Training
 -----
-Train and test using full MIMIC-III data (`-gpu '0'` for single-gpu training, for multi-gpu training, use comma to separate gpus. E.g. `-gpu '0, 1, 2, 3'` for 4 gpu training.)
+1. Train BERT models using MIMIC-III full code dataset
+```sh
+python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model bert_standard -MAX_LENGTH 512 -criterion prec_at_8 -gpu '0' -num_workers 4 -bert_dir path/to/bert/dir
 ```
-python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model MultiResCNN -embed_file ./data/mimic3/processed_full.embed -criterion prec_at_8 -gpu '0, 1, 2, 3' -num_workers 16 -tune_wordemb
+
+2. Train XLNet models using MIMIC-III full code dataset
+```sh
+python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model xlnet -MAX_LENGTH 1500 -batch_size 8 -lr 2e-5 -criterion prec_at_8 -gpu '0' -num_workers 4 -xlnet_dir path/to/xlnet/dir
+```
+
+3. Train Longformer models using MIMIC-III full code dataset
+```sh
+python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model longformer -MAX_LENGTH 3200 -batch_size 4 -lr 1e-5 -criterion prec_at_8 -gpu '0' -num_workers 4 -longformer_dir path/to/longformer/dir
+```
+  
+4. Train the baseline MultiResCNN model using MIMIC-III top-50 code dataset
+```sh
+python main.py -data_path ./data/mimic3/train_50.csv -vocab ./data/mimic3/vocab.csv -Y 50 -model MultiResCNN -MAX_LENGTH 2500 -embed_file ./data/mimic3/processed_full.embed -criterion prec_at_5 -gpu '0' -num_workers 4 -tune_wordemb 
+```
+
+5. If you want to multiple GPUs (e.g. 4 GPUs), use `-gpu '0, 1, 2, 3'`.
+
+6. If you have more CPU cores and want to speed up the dataloader, modify `-num_workers` to a larger number.
+
+Evaluation
+-----
+Evaluate the Longformer-3200 model on MIMIC-III full code dataset:
+```sh
+python main.py -data_path ./data/mimic3/train_full.csv -vocab ./data/mimic3/vocab.csv -Y full -model longformer -gpu '0' -MAX_LENGTH 3200 -num_workers 4 -longformer_dir path/to/longformer/dir -test_model path/to/saved/model.pth
 ```
 
 Acknowledgement
 -----
-A large portion of the code in this repository comes from [foxlf823/Multi-Filter-Residual-Convolutional-Neural-Network
-](https://github.com/foxlf823/Multi-Filter-Residual-Convolutional-Neural-Network).
+A large portion of the code in this repository is borrowed from [foxlf823/Multi-Filter-Residual-Convolutional-Neural-Network
+](https://github.com/foxlf823/Multi-Filter-Residual-Convolutional-Neural-Network). Thanks to their great work.
